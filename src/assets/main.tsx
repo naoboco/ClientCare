@@ -10,16 +10,27 @@ function subscribeToHash(onChange: () => void) {
 }
 
 function Website() {
-  const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash)
-  const isOlimline = hash === '#/olimline' || hash.startsWith('#/olimline/')
+  const hash = useSyncExternalStore(
+    subscribeToHash,
+    () => window.location.hash,
+  )
+
+  const isOlimline =
+    hash === '#/olimline' || hash.startsWith('#/olimline/')
 
   useEffect(() => {
-    document.title = isOlimline ? 'Olimline — Les liens qui comptent' : 'Watchover — Your business. Your way.'
+    document.title = isOlimline
+      ? 'Olimline — Les liens qui comptent'
+      : 'Watchover — Your business. Your way.'
+
     document.documentElement.lang = isOlimline ? 'fr' : 'en'
 
     if (isOlimline) {
       const section = hash.split('/')[2]
-      const target = section ? document.getElementById(`ol-${section}`) : null
+      const target = section
+        ? document.getElementById(`ol-${section}`)
+        : null
+
       if (target) target.scrollIntoView({ block: 'start' })
       else window.scrollTo(0, 0)
     } else if (hash === '#top' || hash === '') {

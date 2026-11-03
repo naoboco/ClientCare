@@ -144,11 +144,11 @@ function App() {
                 Discover Watchover →
               </a>
 
-              <a
-                href="#/olimline"
+              <a 
+                href="#/olimline" 
                 className="button button-outline"
               >
-                Try the demo →
+                 Try the demo →
               </a>
             </div>
 
