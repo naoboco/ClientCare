@@ -145,10 +145,10 @@ function App() {
               </a>
 
               <a
-                href="#benefits"
+                href="#/olimline"
                 className="button button-outline"
               >
-                Learn more
+                Try the demo →
               </a>
             </div>
 

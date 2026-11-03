@@ -1,0 +1,98 @@
+.ol-page {
+  --ol-green: #087951;
+  --ol-ink: #143c32;
+  --ol-muted: #576e64;
+  color: var(--ol-ink);
+  background: #fffefa;
+  overflow-x: clip;
+}
+.ol-page h1, .ol-page h2, .ol-page h3, .ol-page p { margin: 0; }
+.ol-page h1 span, .ol-page h2 span, .ol-logo span { color: var(--ol-green); }
+.ol-page button { font: inherit; cursor: pointer; }
+.ol-page section { scroll-margin-top: 100px; }
+.ol-page a:focus-visible, .ol-page button:focus-visible, .ol-page summary:focus-visible { outline: 3px solid #087951; outline-offset: 5px; }
+.ol-skip { position: fixed; top: 8px; left: 8px; padding: 14px; background: white; z-index: 500; transform: translateY(-150%); }
+.ol-skip:focus { transform: none; }
+.ol-demo-note { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 25px; padding: 11px 5%; background: #e6f3eb; color: #315b47; text-align: center; font-size: 11px; line-height: 1.6; }
+.ol-demo-note a { text-decoration: underline; text-underline-offset: 3px; }
+.ol-header { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 22px; min-height: 85px; padding: 16px 7%; border-bottom: 1px solid #e3ece4; background: #fffefaef; backdrop-filter: blur(18px); }
+.ol-logo { font-size: 30px; font-weight: 850; letter-spacing: -1.8px; }
+.ol-page .ol-nav { display: flex; align-items: center; gap: 28px; font-size: 13px; }
+.ol-page .ol-nav a:hover, .ol-text-link:hover { color: var(--ol-green); text-decoration: underline; text-underline-offset: 5px; }
+.ol-button { display: inline-flex; align-items: center; justify-content: center; gap: 15px; min-height: 50px; padding: 15px 23px; border: 1px solid var(--ol-green); border-radius: 12px; background: var(--ol-green); color: white; font-size: 13px; font-weight: 700; line-height: 1.5; text-align: center; transition: background .2s, transform .2s; }
+.ol-button:hover { background: #056240; transform: translateY(-2px); }
+.ol-button span { color: inherit; }
+.ol-button-small { min-height: 44px; padding: 11px 18px; }
+.ol-button-outline { background: transparent; color: var(--ol-green); border-color: #afc8b8; }
+.ol-button-outline:hover { background: #e6f3eb; }
+.ol-hero { display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; gap: 6%; padding: 75px 9% 90px; background: radial-gradient(ellipse at 85% 45%, #d9f1df 0, transparent 50%), #fffefa; }
+.ol-eyebrow { display: block; color: var(--ol-green); font-size: 10px; font-weight: 800; letter-spacing: 2.4px; margin-bottom: 22px; }
+.ol-hero h1 { font-size: clamp(43px, 5.4vw, 78px); line-height: 1.05; letter-spacing: -3.8px; font-weight: 800; }
+.ol-hero-copy > p { max-width: 460px; margin-top: 25px; color: var(--ol-muted); font-size: 16px; line-height: 1.9; }
+.ol-actions { display: flex; align-items: center; gap: 25px; flex-wrap: wrap; margin-top: 30px; }
+.ol-text-link { font-size: 13px; font-weight: 700; }
+.ol-hero-copy .ol-hero-caption { font-size: 11px; margin-top: 28px; }
+.ol-visual { position: relative; display: grid; place-items: center; min-height: 500px; isolation: isolate; }
+.ol-orbit { position: absolute; width: 90%; aspect-ratio: 1; border: 1px solid #badbc5; border-radius: 50%; z-index: -1; }
+.ol-orbit-two { width: 110%; border-style: dashed; opacity: .7; }
+.ol-phone { width: 263px; padding: 24px 20px 20px; border: 7px solid #173e32; border-radius: 38px; background: #f5fcf3; box-shadow: 20px 30px 70px #173e3220; transform: rotate(5deg); }
+.ol-phone-bar { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; margin-bottom: 30px; }
+.ol-phone-caption { font-size: 8px; letter-spacing: 2px; color: var(--ol-muted); }
+.ol-phone h2 { font-size: 24px; line-height: 1.15; letter-spacing: -1px; margin-top: 10px; }
+.ol-data-circle { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 148px; height: 148px; margin: 22px auto; border: 10px solid #c8ebad; border-top-color: #087951; border-right-color: #087951; border-radius: 50%; }
+.ol-data-circle strong { font-size: 48px; letter-spacing: -3px; line-height: 1.1; }
+.ol-data-circle span { font-size: 10px; color: var(--ol-muted); }
+.ol-phone-row { display: flex; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid #dce9dc; font-size: 9px; }
+.ol-phone-price { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 20px; font-size: 10px; }
+.ol-phone-price strong { font-size: 18px; }
+.ol-phone-price small { font-size: 9px; font-weight: 400; }
+.ol-destination { position: absolute; display: flex; gap: 20px; align-items: center; padding: 13px 18px; border: 1px solid #d7e7d8; background: white; box-shadow: 0 10px 30px #143c3210; border-radius: 12px; font-size: 10px; font-weight: 800; letter-spacing: 1px; }
+.ol-destination span { font-size: 20px; color: var(--ol-green); }
+.ol-destination-fr { top: 28px; left: -10px; transform: rotate(-8deg); }
+.ol-destination-il { bottom: 78px; right: -10px; transform: rotate(7deg); }
+.ol-float-note { position: absolute; bottom: -30px; padding: 14px 20px; border-radius: 30px; background: #d8edbd; font-size: 11px; font-weight: 700; }
+.ol-float-note span { margin-right: 8px; }
+.ol-section { padding: 85px 9%; }
+.ol-section h2 { font-size: clamp(32px, 3.5vw, 49px); letter-spacing: -2px; line-height: 1.15; }
+.ol-section-intro { text-align: center; max-width: 650px; margin: 0 auto 45px; }
+.ol-section-intro p { margin-top: 18px; color: var(--ol-muted); line-height: 1.8; font-size: 14px; }
+.ol-plans { background: #f2f7f0; }
+.ol-plans-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; max-width: 1100px; margin: auto; }
+.ol-plan { display: flex; flex-direction: column; padding: 30px 24px; background: white; border: 1px solid #dce6d9; border-radius: 22px; }
+.ol-plan-featured { border: 2px solid var(--ol-green); background: #fafff8; box-shadow: 0 15px 40px #143c320a; }
+.ol-plan-label { display: block; color: var(--ol-green); font-size: 8px; font-weight: 800; letter-spacing: 1.4px; }
+.ol-plan h3 { font-size: 26px; margin-top: 18px; letter-spacing: -.8px; }
+.ol-plan .ol-plan-description { font-size: 12px; line-height: 1.8; color: var(--ol-muted); margin-top: 10px; }
+.ol-plan .ol-plan-price { display: flex; align-items: baseline; gap: 9px; margin-top: 25px; }
+.ol-plan-price strong { font-size: 54px; line-height: 1; letter-spacing: -3px; }
+.ol-plan-price span { font-size: 12px; color: var(--ol-muted); }
+.ol-plan ul { list-style: none; padding: 20px 0; margin: 20px 0 15px; border-top: 1px solid #e2eade; font-size: 12px; line-height: 2.9; }
+.ol-plan li::before { content: '✓'; color: var(--ol-green); margin-right: 9px; font-weight: 800; }
+.ol-plan .ol-button { margin-top: auto; width: 100%; padding: 13px 8px; font-size: 11px; }
+.ol-plan-footnote { max-width: 900px; margin: 26px auto 0 !important; color: var(--ol-muted); font-size: 10px; text-align: center; line-height: 1.9; }
+.ol-steps { display: grid; grid-template-columns: 1fr 1fr; gap: 12%; align-items: center; }
+.ol-steps ol { list-style: none; padding: 0; margin: 0; }
+.ol-steps li { display: flex; gap: 20px; padding: 22px 0; border-bottom: 1px solid #e2e9de; }
+.ol-steps li > span { color: var(--ol-green); font-size: 12px; font-weight: 800; padding-top: 4px; }
+.ol-steps h3 { font-size: 18px; letter-spacing: -.4px; }
+.ol-steps p { font-size: 13px; color: var(--ol-muted); line-height: 1.8; margin-top: 8px; }
+.ol-contact { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 10%; background: #e4f1e0; }
+.ol-contact > div > p { color: var(--ol-muted); font-size: 14px; line-height: 1.9; max-width: 430px; margin-top: 20px; }
+.ol-contact-card { display: flex; flex-direction: column; align-items: flex-start; padding: 30px; border-radius: 20px; background: white; box-shadow: 0 15px 45px #143c3208; }
+.ol-contact-card h3 { font-size: 28px; margin-top: 15px; letter-spacing: -1px; }
+.ol-contact .ol-contact-card > p { font-size: 12px; margin-top: 10px; }
+.ol-contact-price { font-size: 20px; margin: 22px 0; }
+.ol-contact-card .ol-button { width: 100%; }
+.ol-contact .ol-contact-card .ol-contact-hint { font-size: 10px; line-height: 1.8; margin-top: 15px; }
+.ol-faq { max-width: 980px; margin: auto; }
+.ol-faq h2 { margin-bottom: 30px; }
+.ol-faq details { border-bottom: 1px solid #dce6d9; }
+.ol-faq summary { padding: 22px 0; cursor: pointer; font-size: 14px; font-weight: 700; line-height: 1.7; }
+.ol-faq details p { padding: 0 0 22px; color: var(--ol-muted); font-size: 13px; line-height: 1.9; }
+.ol-page .ol-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 32px 7%; border-top: 1px solid #e2e9de; }
+.ol-page .ol-footer p, .ol-page .ol-footer a:not(.ol-logo), .ol-page .ol-footer small { font-size: 11px; color: var(--ol-muted); }
+@media (min-width: 1500px) { .ol-hero, .ol-section { padding-left: max(9%, calc((100% - 1250px) / 2)); padding-right: max(9%, calc((100% - 1250px) / 2)); } }
+@media (max-width: 1050px) { .ol-header { padding-inline: 5%; } .ol-page .ol-nav { gap: 17px; font-size: 11px; } .ol-hero, .ol-section { padding-inline: 6%; } .ol-hero { gap: 3%; } .ol-hero h1 { letter-spacing: -2px; } .ol-plan { padding: 25px 18px; } }
+@media (max-width: 760px) { .ol-header { min-height: 75px; } .ol-page .ol-nav { display: none; } .ol-hero { grid-template-columns: 1fr; gap: 45px; padding-block: 55px 65px; } .ol-hero-copy { max-width: 540px; } .ol-hero h1 { font-size: clamp(42px, 8vw, 64px); } .ol-visual { width: min(420px, 90%); margin: auto; min-height: 510px; } .ol-plans-grid { grid-template-columns: 1fr; max-width: 450px; } .ol-section { padding-block: 60px; } .ol-steps, .ol-contact { grid-template-columns: 1fr; gap: 30px; } .ol-plan .ol-button { font-size: 13px; } .ol-plan .ol-plan-description, .ol-plan ul { font-size: 14px; } }
+@media (max-width: 400px) { .ol-logo { font-size: 26px; } .ol-header { gap: 12px; } .ol-button-small { padding: 10px 13px; font-size: 11px; } .ol-hero h1 { font-size: 41px; } .ol-destination-fr { left: -12px; } .ol-destination-il { right: -12px; } .ol-destination { padding: 10px 12px; font-size: 8px; } .ol-contact-card { padding: 24px; } }
+@media (prefers-reduced-motion: reduce) { .ol-button { transition: none; } }
