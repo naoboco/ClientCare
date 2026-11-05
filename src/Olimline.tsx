@@ -34,7 +34,7 @@ export default function Olimline() {
           <a href="#/olimline/parcours">Comment ça marche</a>
           <a href="#/olimline/questions">Vos questions</a>
         </nav>
-        <a className="ol-button ol-button-small" href="#/olimline/contact">Parlons-en ↗</a>
+          <a className="ol-button ol-button-small" href="#/olimline/connexion"> Se connecter </a>
       </header>
 
       <main>

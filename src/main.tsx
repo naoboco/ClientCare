@@ -7,6 +7,7 @@ import Olimline from './Olimline.tsx'
 import Login from './Login.tsx'
 import { supabase } from './lib/olimline'
 import { loadProfile, signOut, type Profile } from './lib/auth'
+import PasswordReset from './PasswordReset.tsx'
 
 type Identity = { userId: string | null }
 type AccountResult = {
@@ -140,9 +141,20 @@ function Website() {
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash)
   const isOlimline = hash === '#/olimline' || hash.startsWith('#/olimline/')
   const isAccount = hash === '#/olimline/connexion' || hash === '#/olimline/espace'
+  const resetMode = hash === '#/olimline/mot-de-passe'
+    ? 'request'
+    : hash === '#/olimline/nouveau-mot-de-passe' ? 'update' : null
+  const isAuthPage = isAccount || resetMode !== null
 
   useEffect(() => {
-    document.title = isAccount
+    const flow = new URLSearchParams(window.location.search).get('olimline_auth')
+    if (flow === 'recovery') {
+      window.location.hash = '#/olimline/nouveau-mot-de-passe'
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = isAuthPage
       ? 'Mon espace Olimline'
       : isOlimline
         ? 'Olimline — Les liens qui comptent'
@@ -151,16 +163,17 @@ function Website() {
     document.documentElement.lang = isOlimline ? 'fr' : 'en'
 
     if (isOlimline) {
-      const section = isAccount ? '' : hash.split('/')[2]
-      const target = section ? document.getElementById(`ol-${section}`) : null
+      const section = isAuthPage ? '' : hash.split('/')[2]
+      const target = section ? document.getElementById('ol-' + section) : null
 
       if (target) target.scrollIntoView({ block: 'start' })
       else window.scrollTo(0, 0)
     } else if (hash === '#top' || hash === '') {
       window.scrollTo(0, 0)
     }
-  }, [hash, isOlimline, isAccount])
+  }, [hash, isOlimline, isAuthPage])
 
+  if (resetMode) return <PasswordReset key={resetMode} mode={resetMode} />
   return isAccount ? <Account /> : isOlimline ? <Olimline /> : <App />
 }
 

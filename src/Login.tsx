@@ -63,6 +63,9 @@ export default function Login({ onConnected }: LoginProps) {
           {busy ? 'Connexion en cours…' : 'Se connecter'}
         </button>
       </form>
+      <p>
+        <a href="#/olimline/mot-de-passe">Mot de passe oublié ?</a>
+      </p>
     </main>
   )
 }
