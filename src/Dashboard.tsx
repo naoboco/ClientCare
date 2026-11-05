@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
 import type { Profile } from './lib/auth'
+import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
 import './Dashboard.css'
 
 type Client = {
@@ -12,6 +13,8 @@ type Client = {
   needs: string
   coordinator_id: string | null
   created_at: string
+  last_contact_at: string | null
+  next_followup_at: string | null
 }
 
 type Plan = {
@@ -38,7 +41,7 @@ type Props = {
   logoutError: string
 }
 
-const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at'
+const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at'
 
 function messageOf(error: unknown) {
   return error && typeof error === 'object' && 'message' in error
@@ -62,9 +65,11 @@ function exportCsv(rows: Client[]) {
   }
 
   const lines = [
-    ['Nom', 'Email', 'Téléphone', 'Besoins'],
+    ['Nom', 'Email', 'Téléphone', 'Besoins', 'Dernier contact', 'Prochaine relance'],
     ...rows.map(client => [
       client.full_name, client.email, client.phone, client.needs,
+      client.last_contact_at ? formatContactDate(client.last_contact_at) : '',
+      client.next_followup_at ? formatContactDate(client.next_followup_at) : '',
     ]),
   ]
 
@@ -101,13 +106,16 @@ export default function Dashboard({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
 
   const original = clients.find(client => client.id === selected?.id)
   const dirty = Boolean(selected && original && (
     selected.full_name !== original.full_name ||
     selected.phone !== original.phone ||
     selected.needs !== original.needs ||
-    selected.coordinator_id !== original.coordinator_id
+    selected.coordinator_id !== original.coordinator_id ||
+    selected.last_contact_at !== original.last_contact_at ||
+    selected.next_followup_at !== original.next_followup_at
   ))
 
   useEffect(() => {
@@ -177,6 +185,11 @@ export default function Dashboard({
   }, [profile.id, profile.organization_id, profile.role, revision])
 
   useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  useEffect(() => {
     if (!dirty) return
 
     const warn = (event: BeforeUnloadEvent) => {
@@ -203,7 +216,7 @@ export default function Dashboard({
   }
 
   function change<
-    K extends 'full_name' | 'phone' | 'needs' | 'coordinator_id'
+    K extends 'full_name' | 'phone' | 'needs' | 'coordinator_id' | 'last_contact_at' | 'next_followup_at'
   >(field: K, value: Client[K]) {
     setSelected(current => current ? { ...current, [field]: value } : null)
     setSaved(false)
@@ -235,6 +248,8 @@ export default function Dashboard({
         full_name: row.full_name,
         phone: row.phone,
         needs: row.needs,
+        last_contact_at: row.last_contact_at,
+        next_followup_at: row.next_followup_at,
         ...(admin ? { coordinator_id: row.coordinator_id } : {}),
       }
 
@@ -270,15 +285,17 @@ export default function Dashboard({
     return match && (
       filter === 'all' ||
       (filter === 'needs' && !client.needs.trim()) ||
+      (filter === 'overdue' && isOverdue(client, now)) ||
       (filter === 'phone' && !client.phone.trim()) ||
       (filter === 'unassigned' && !client.coordinator_id)
     )
   })
 
+  const overdueCount = clients.filter(client => isOverdue(client, now)).length
   const ready = !loading && !loadError
   const metrics = [
     [editable ? 'Clients accessibles' : 'Mon dossier', clients.length],
-    ['Besoins renseignés', clients.filter(client => client.needs.trim()).length],
+    ['Relances en retard', overdueCount],
     [
       admin ? 'Clients à attribuer' : 'Téléphones renseignés',
       clients.filter(client =>
@@ -475,6 +492,15 @@ export default function Dashboard({
           )}
 
           {ready && tab === 'clients' && <>
+            {editable && overdueCount > 0 && (
+              <div className="wo-alert wo-followup-alert" role="status">
+                <strong>{overdueCount} relance{overdueCount > 1 ? 's' : ''} en retard.</strong>
+                <button type="button" className="wo-button wo-quiet"
+                  onClick={() => { setFilter('overdue'); setSearch('') }}>
+                  Voir les clients à relancer
+                </button>
+              </div>
+            )}
             {editable && (
               <div className="wo-toolbar">
                 <label className="wo-search">
@@ -493,6 +519,7 @@ export default function Dashboard({
                     onChange={event => setFilter(event.target.value)}
                   >
                     <option value="all">Tous les clients</option>
+                    <option value="overdue">Relances en retard</option>
                     <option value="needs">Besoins à préciser</option>
                     <option value="phone">Téléphone manquant</option>
                     {admin && <option value="unassigned">Sans responsable</option>}
@@ -538,6 +565,12 @@ export default function Dashboard({
                         <small>{client.email}</small>
                         <span className="wo-row-note">
                           {client.needs || 'Besoins à préciser'}
+                        </span>
+                        <span className="wo-followup" data-overdue={isOverdue(client, now)}>
+                          {client.next_followup_at
+                            ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
+                              formatContactDate(client.next_followup_at)
+                            : 'Relance à planifier'}
                         </span>
                       </span>
                       <span aria-hidden="true">›</span>
@@ -604,6 +637,39 @@ export default function Dashboard({
                           placeholder="Non renseigné"
                         />
                       </label>
+                    </div>
+
+                    <div className="wo-followup-fields">
+                      <div className="wo-form-grid">
+                        <label>
+                          Dernier contact
+                          <input type="datetime-local"
+                            value={toDateTimeInput(selected.last_contact_at)}
+                            readOnly={!editable} disabled={saving}
+                            onChange={event => change(
+                              'last_contact_at', fromDateTimeInput(event.target.value)
+                            )}
+                          />
+                        </label>
+                        <label>
+                          Prochaine relance
+                          <input type="datetime-local"
+                            value={toDateTimeInput(selected.next_followup_at)}
+                            readOnly={!editable} disabled={saving}
+                            onChange={event => change(
+                              'next_followup_at', fromDateTimeInput(event.target.value)
+                            )}
+                          />
+                        </label>
+                      </div>
+                      <small>Heure locale : {Intl.DateTimeFormat().resolvedOptions().timeZone}</small>
+                      {editable && (
+                        <button type="button" className="wo-button wo-quiet"
+                          disabled={saving}
+                          onClick={() => change('last_contact_at', new Date().toISOString())}>
+                          Contact effectué maintenant
+                        </button>
+                      )}
                     </div>
 
                     <label>

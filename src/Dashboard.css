@@ -129,3 +129,10 @@
   .wo-detail-top { align-items:start; }
   .wo-section-heading h2 { font-size:20px; }
 }
+
+.wo-followup { display:block; margin-top:7px; color:#577079; font-size:11px; }
+.wo-followup[data-overdue="true"] { color:#a12b20; font-weight:750; }
+.wo-followup-alert { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:0 0 18px; }
+.wo-followup-fields { display:grid; gap:10px; padding:16px; border:1px solid #e3e9ec; border-radius:10px; background:#fafcfc; }
+.wo-followup-fields > small { color:#62767c; font-size:11px; }
+.wo-followup-fields > button { justify-self:start; }
