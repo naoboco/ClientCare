@@ -5,6 +5,7 @@ import './Account.css'
 import App from './App.tsx'
 import Olimline from './Olimline.tsx'
 import Login from './Login.tsx'
+import Dashboard from './Dashboard.tsx'
 import { supabase } from './lib/olimline'
 import { loadProfile, signOut, type Profile } from './lib/auth'
 import PasswordReset from './PasswordReset.tsx'
@@ -104,27 +105,22 @@ function Account() {
   const current = result?.identity === identity ? result : null
   const profile = current?.profile
 
-  return (
-    <main className="olimline-account" data-role={profile?.role}>
+  return profile ? (
+    <Dashboard
+      key={profile.id}
+      profile={profile}
+      roleLabel={roleNames[profile.role]}
+      onLogout={handleLogout}
+      logoutBusy={busy}
+      logoutError={logoutError}
+    />
+  ) : (
+    <main className="olimline-account">
       <a href="#/olimline">← Retour à Olimline</a>
-
-      <h1>
-        {profile ? `Espace ${roleNames[profile.role]}` : 'Mon espace Olimline'}
-      </h1>
-
-      {profile ? (
-        <>
-          <p>Bonjour {profile.full_name}.</p>
-          <p>{profile.email}</p>
-          <p>Votre connexion est opérationnelle.</p>
-        </>
-      ) : !current?.error && (
-        <p role="status">Chargement de votre profil…</p>
-      )}
-
+      <h1>Mon espace Olimline</h1>
+      {!current?.error && <p role="status">Chargement de votre profil…</p>}
       {current?.error && <p role="alert">{current.error}</p>}
       {logoutError && <p role="alert">{logoutError}</p>}
-
       <button type="button" onClick={handleLogout} disabled={busy}>
         {busy ? 'Déconnexion…' : 'Se déconnecter'}
       </button>
