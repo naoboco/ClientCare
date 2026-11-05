@@ -1,8 +1,135 @@
-import { StrictMode, useEffect, useSyncExternalStore } from 'react'
+import { StrictMode, useEffect, useState, useSyncExternalStore } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './Account.css'
 import App from './App.tsx'
 import Olimline from './Olimline.tsx'
+import Login from './Login.tsx'
+import { supabase } from './lib/olimline'
+import { loadProfile, signOut, type Profile } from './lib/auth'
+
+type Identity = { userId: string | null }
+type AccountResult = {
+  identity: Identity
+  profile?: Profile
+  error?: string
+}
+
+const roleNames = {
+  client: 'Client',
+  coordinator: 'Coordinateur',
+  admin: 'Administratrice',
+}
+
+function Account() {
+  const [identity, setIdentity] = useState<Identity | null>(null)
+  const [result, setResult] = useState<AccountResult | null>(null)
+  const [logoutError, setLogoutError] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (!supabase) return
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIdentity({ userId: session?.user.id ?? null })
+      setLogoutError('')
+    })
+
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!identity?.userId) return
+    let active = true
+
+    loadProfile(identity.userId).then(
+      profile => {
+        if (active) setResult({ identity, profile })
+      },
+      () => {
+        if (active) {
+          setResult({
+            identity,
+            error: 'Profil indisponible. Déconnectez-vous puis réessayez.',
+          })
+        }
+      },
+    )
+
+    return () => { active = false }
+  }, [identity])
+
+  async function handleLogout() {
+    if (busy) return
+    setBusy(true)
+    setLogoutError('')
+
+    try {
+      await signOut()
+      window.location.hash = '#/olimline/connexion'
+    } catch {
+      setLogoutError('La déconnexion a échoué. Réessayez.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!supabase) {
+    return (
+      <p className="olimline-account" role="alert">
+        La configuration Supabase est manquante.
+      </p>
+    )
+  }
+
+  if (!identity) {
+    return (
+      <p className="olimline-account" role="status">
+        Chargement de la session…
+      </p>
+    )
+  }
+
+  if (!identity.userId) {
+    return (
+      <Login
+        onConnected={() => {
+          window.location.hash = '#/olimline/espace'
+        }}
+      />
+    )
+  }
+
+  const current = result?.identity === identity ? result : null
+  const profile = current?.profile
+
+  return (
+    <main className="olimline-account" data-role={profile?.role}>
+      <a href="#/olimline">← Retour à Olimline</a>
+
+      <h1>
+        {profile ? `Espace ${roleNames[profile.role]}` : 'Mon espace Olimline'}
+      </h1>
+
+      {profile ? (
+        <>
+          <p>Bonjour {profile.full_name}.</p>
+          <p>{profile.email}</p>
+          <p>Votre connexion est opérationnelle.</p>
+        </>
+      ) : !current?.error && (
+        <p role="status">Chargement de votre profil…</p>
+      )}
+
+      {current?.error && <p role="alert">{current.error}</p>}
+      {logoutError && <p role="alert">{logoutError}</p>}
+
+      <button type="button" onClick={handleLogout} disabled={busy}>
+        {busy ? 'Déconnexion…' : 'Se déconnecter'}
+      </button>
+    </main>
+  )
+}
 
 function subscribeToHash(onChange: () => void) {
   window.addEventListener('hashchange', onChange)
@@ -12,22 +139,29 @@ function subscribeToHash(onChange: () => void) {
 function Website() {
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash)
   const isOlimline = hash === '#/olimline' || hash.startsWith('#/olimline/')
+  const isAccount = hash === '#/olimline/connexion' || hash === '#/olimline/espace'
 
   useEffect(() => {
-    document.title = isOlimline ? 'Olimline — Les liens qui comptent' : 'Watchover — Your business. Your way.'
+    document.title = isAccount
+      ? 'Mon espace Olimline'
+      : isOlimline
+        ? 'Olimline — Les liens qui comptent'
+        : 'Watchover — Your business. Your way.'
+
     document.documentElement.lang = isOlimline ? 'fr' : 'en'
 
     if (isOlimline) {
-      const section = hash.split('/')[2]
+      const section = isAccount ? '' : hash.split('/')[2]
       const target = section ? document.getElementById(`ol-${section}`) : null
+
       if (target) target.scrollIntoView({ block: 'start' })
       else window.scrollTo(0, 0)
     } else if (hash === '#top' || hash === '') {
       window.scrollTo(0, 0)
     }
-  }, [hash, isOlimline])
+  }, [hash, isOlimline, isAccount])
 
-  return isOlimline ? <Olimline /> : <App />
+  return isAccount ? <Account /> : isOlimline ? <Olimline /> : <App />
 }
 
 createRoot(document.getElementById('root')!).render(

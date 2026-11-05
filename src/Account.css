@@ -1,0 +1,22 @@
+.olimline-login, .olimline-account {
+  width: min(480px, calc(100% - 32px));
+  margin: 64px auto;
+  padding: 28px;
+  border: 1px solid #dce8e2;
+  border-top: 5px solid #087951;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 16px 48px #073b4010;
+  overflow-wrap: anywhere;
+}
+
+.olimline-account[data-role="admin"] { border-top-color: #2446a8; }
+.olimline-account[data-role="coordinator"] { border-top-color: #d46513; }
+.olimline-login a, .olimline-account a { text-decoration: underline; }
+.olimline-login h1, .olimline-account h1 { font-size: 28px; }
+.olimline-login form { display: grid; gap: 12px; margin-top: 24px; }
+.olimline-login input { width: 100%; min-height: 46px; padding: 12px; border: 1px solid #9fb8ad; border-radius: 8px; font: inherit; }
+.olimline-login input:focus-visible { outline: 3px solid #087951; outline-offset: 2px; }
+.olimline-login button, .olimline-account button { min-height: 46px; padding: 12px 20px; border: 0; border-radius: 10px; background: #087951; color: #fff; font: inherit; cursor: pointer; }
+.olimline-login button:disabled, .olimline-account button:disabled { opacity: .6; cursor: wait; }
+.olimline-login [role="alert"], .olimline-account [role="alert"] { color: #a12b20; }
