@@ -10,7 +10,7 @@ const plans = [
 export default function Olimline() {
   const [selectedPlan, setSelectedPlan] = useState(plans[1])
   const contactTitle = useRef<HTMLHeadingElement>(null)
-  const message = `Bonjour Olimline,\n\nJe souhaite des informations sur le forfait ${selectedPlan.name} à ${selectedPlan.price} ₪/mois présenté dans votre démonstration.\n\nMon prénom :\nMon besoin :\nLe meilleur moment pour me contacter :\n\nMerci !`
+  const message = `Bonjour Olimline,\n\nJe souhaite en savoir plus sur le forfait ${selectedPlan.name} à ${selectedPlan.price} ₪/mois.\n\nMon prénom :\nMon besoin :\nLe meilleur moment pour me contacter :\n\nMerci !`
   const emailLink = `mailto:naomiebocobza@naobocolab.com?subject=${encodeURIComponent(`[OLIMLINE] Demande de forfait ${selectedPlan.name}`)}&body=${encodeURIComponent(message)}`
 
   function choosePlan(plan: typeof plans[number]) {
@@ -23,7 +23,7 @@ export default function Olimline() {
     <div className="ol-page" id="ol-top" lang="fr">
       <a className="ol-skip" href="#/olimline/forfaits">Aller aux forfaits</a>
       <div className="ol-demo-note">
-        Une entreprise de démonstration Watchover. Offres et prix fictifs.
+        Olimline · Forfaits mobiles et accompagnement en français
         <a href="#top">Retour à Watchover ↗</a>
       </div>
 
@@ -81,7 +81,7 @@ export default function Olimline() {
               </article>
             ))}
           </div>
-          <p className="ol-plan-footnote">Les minutes internationales concernent les appels depuis Israël vers les fixes et mobiles en France. Elles n’incluent pas l’itinérance à l’étranger. Catalogue fictif de démonstration.</p>
+          <p className="ol-plan-footnote">Les minutes internationales couvrent les appels depuis Israël vers les fixes et mobiles en France. Pour les appels en voyage, renseignez-vous sur les conditions d’itinérance auprès de l’équipe.</p>
         </section>
 
         <section className="ol-steps ol-section" id="ol-parcours" aria-labelledby="ol-steps-title">
@@ -96,13 +96,13 @@ export default function Olimline() {
 
         <section className="ol-faq ol-section" id="ol-questions" aria-labelledby="ol-faq-title">
           <span className="ol-eyebrow">TOUT SIMPLEMENT</span><h2 id="ol-faq-title">Les bonnes <span>questions.</span></h2>
-          <details><summary>Ces forfaits sont-ils de vraies offres commerciales ?</summary><p>Olimline est une entreprise fictive utilisée pour présenter Watchover. Les prix et les volumes servent à la démonstration ; aucune ligne téléphonique n’est vendue ou activée.</p></details>
-          <details><summary>Les minutes vers la France fonctionnent-elles depuis l’étranger ?</summary><p>Le catalogue présenté inclut des appels depuis Israël vers la France. L’itinérance à l’étranger est un service différent et n’est pas incluse dans ces forfaits de démonstration.</p></details>
+          <details><summary>Que se passe-t-il après ma demande ?</summary><p>Votre message transmet vos besoins à l’équipe Olimline. Le catalogue est indicatif. Vous pouvez préciser les conditions et les prochaines étapes avec votre conseiller.</p></details>
+          <details><summary>Comment préparer mes appels depuis l’étranger ?</summary><p>Les minutes vers la France s’utilisent depuis Israël. Si vous voyagez dans un autre pays, renseignez-vous auprès de l’équipe sur les conditions d’itinérance.</p></details>
           <details><summary>Comment transmettre ma demande ?</summary><p>Choisissez un forfait puis préparez votre demande par email. Le message s’ouvre dans votre messagerie et vous gardez la main sur son envoi.</p></details>
         </section>
       </main>
 
-      <footer className="ol-footer"><a className="ol-logo" href="#/olimline">olim<span>line.</span></a><p>Les liens qui comptent.</p><a href="#top">Propulsé par Watchover ↗</a><small>© {new Date().getFullYear()} Olimline · Démonstration</small></footer>
+      <footer className="ol-footer"><a className="ol-logo" href="#/olimline">olim<span>line.</span></a><p>Les liens qui comptent.</p><a href="#top">Propulsé par Watchover ↗</a><small>© {new Date().getFullYear()} Olimline</small></footer>
     </div>
   )
 }

@@ -224,17 +224,6 @@ export default function Dashboard({
     setSaveError('')
   }
 
-  function acceptAiNotes(text: string): boolean {
-    if (!selected || saving) return false
-    const combined = [selected.needs.trim(), text].filter(Boolean).join('\n\n')
-    if (combined.length > 6000) {
-      setSaveError('Les notes dépassent 6000 caractères. Raccourcissez-les avant d’ajouter cette analyse.')
-      return false
-    }
-    change('needs', combined)
-    return true
-  }
-
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!selected || !editable || saving || !dirty) return
@@ -757,7 +746,7 @@ export default function Dashboard({
                   </form>
                   {editable && (
                     <EmailAnalysis key={selected.id} clientId={selected.id}
-                      disabled={saving} onApply={acceptAiNotes} />
+                      clientEmail={selected.email} disabled={saving} />
                   )}
                 </section>
               ) : (

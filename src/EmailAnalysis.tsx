@@ -7,102 +7,208 @@ type Analysis = {
   suggested_reply: string
   uncertainties: string[]
 }
+type History = {
+  count: number
+  firstAt: string | null
+  lastAt: string | null
+}
+type SavedAnalysis = Analysis & {
+  message_count: number
+  first_message_at: string | null
+  last_message_at: string | null
+  reviewed_at: string
+}
 type Props = {
   clientId: string
+  clientEmail: string
   disabled: boolean
-  onApply: (text: string) => boolean
 }
 
-export default function EmailAnalysis({ clientId, disabled, onApply }: Props) {
-  const [email, setEmail] = useState('')
+function historyLabel({ count, firstAt, lastAt }: History) {
+  const label = `${count} ${count === 1 ? 'message analysé' : 'messages analysés'}`
+  if (!firstAt || !lastAt) return label
+  const first = new Date(firstAt).toLocaleDateString('fr-FR')
+  const last = new Date(lastAt).toLocaleDateString('fr-FR')
+  return first === last ? `${label} le ${last}` : `${label} du ${first} au ${last}`
+}
+
+export default function EmailAnalysis({ clientId, clientEmail, disabled }: Props) {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
-  const [model, setModel] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [history, setHistory] = useState<History | null>(null)
+  const [reviewId, setReviewId] = useState('')
+  const [previous, setPrevious] = useState<SavedAnalysis | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [busy, setBusy] = useState<'analyze' | 'connect' | 'save' | null>(null)
+  const [canConnect, setCanConnect] = useState(false)
   const [error, setError] = useState('')
   const [reviewed, setReviewed] = useState(false)
-  const [applied, setApplied] = useState(false)
+  const [saved, setSaved] = useState(false)
   const controller = useRef<AbortController | null>(null)
 
   useEffect(() => () => { controller.current?.abort() }, [])
+  useEffect(() => {
+    const request = new AbortController()
+    async function load() {
+      const { data, error } = await db().from('wo_client_email_analyses')
+        .select('summary, needs, suggested_reply, uncertainties, message_count, first_message_at, last_message_at, reviewed_at')
+        .eq('client_id', clientId).order('reviewed_at', { ascending: false })
+        .limit(1).abortSignal(request.signal).maybeSingle()
+      if (request.signal.aborted) return
+      setLoadError(Boolean(error))
+      setPrevious(data)
+    }
+    void load()
+    return () => request.abort()
+  }, [clientId])
 
-  async function analyze() {
-    if (busy || disabled || email.trim().length < 10) return
+  async function run(action: 'analyze' | 'connect') {
+    if (busy || disabled) return
     const request = new AbortController()
     controller.current = request
-    const timeout = window.setTimeout(() => request.abort(), 35_000)
-    setBusy(true)
+    const signal = AbortSignal.any([request.signal, AbortSignal.timeout(180_000)])
+    setBusy(action)
     setError('')
+    setCanConnect(false)
     setAnalysis(null)
+    setHistory(null)
     setReviewed(false)
-    setApplied(false)
+    setSaved(false)
     try {
       const { data, error: sessionError } = await db().auth.getSession()
-      if (sessionError || !data.session) throw new Error('Reconnectez-vous pour analyser cet email.')
+      if (sessionError || !data.session) throw new Error('Reconnectez-vous pour analyser les échanges.')
       const response = await fetch('/api/analyze-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
-        body: JSON.stringify({ clientId, emailText: email }),
-        signal: request.signal,
+        body: JSON.stringify({ clientId, action }),
+        signal,
       })
       const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.error || 'Service IA indisponible (' + response.status + ').')
+      if (request.signal.aborted) return
+      if (!response.ok) {
+        setCanConnect(payload?.canConnect === true)
+        throw new Error(payload?.error || 'Service d’analyse indisponible (' + response.status + ').')
+      }
+      if (action === 'connect') {
+        const url = new URL(payload?.authorizationUrl)
+        if (url.protocol !== 'https:') throw new Error('Le lien de connexion Gmail est invalide.')
+        window.location.assign(url.href)
+        return
+      }
+      if (!Number.isInteger(payload?.history?.count) || payload.history.count < 0) {
+        throw new Error('Le résultat reçu est incomplet.')
+      }
+      if (payload.history.count === 0) {
+        setHistory(payload.history)
+        return
+      }
       const result = payload?.analysis
       if (!result || !['summary', 'needs', 'suggested_reply'].every(key =>
         typeof result[key] === 'string') || !Array.isArray(result.uncertainties) ||
         !result.uncertainties.every((item: unknown) => typeof item === 'string')) {
         throw new Error('Le résultat reçu est incomplet.')
       }
-      if (request.signal.aborted) return
+      setHistory(payload.history)
+      setReviewId(crypto.randomUUID())
       setAnalysis(result as Analysis)
-      setModel(String(payload.model || 'Gemini'))
     } catch (reason) {
-      if (!request.signal.aborted) setError(reason instanceof Error ? reason.message : 'Analyse impossible.')
-      else setError('L’analyse a été interrompue. Réessayez.')
+      if (request.signal.aborted) return
+      setError(signal.aborted ? 'La demande a pris trop de temps. Réessayez.'
+        : reason instanceof Error ? reason.message : 'Analyse impossible.')
     } finally {
-      window.clearTimeout(timeout)
-      setBusy(false)
+      if (!request.signal.aborted) setBusy(null)
     }
   }
 
   function edit(field: 'summary' | 'needs' | 'suggested_reply', value: string) {
     setAnalysis(current => current ? { ...current, [field]: value } : null)
     setReviewed(false)
-    setApplied(false)
+    setError('')
   }
 
+  async function saveAnalysis() {
+    if (busy || disabled || saved || !reviewed || !analysis || !history?.count) return
+    const summary = analysis.summary.trim()
+    const needs = analysis.needs.trim()
+    if (!summary || !needs) return
+    const request = new AbortController()
+    controller.current = request
+    setBusy('save')
+    setError('')
+    try {
+      const snapshot = {
+        summary,
+        needs,
+        suggested_reply: analysis.suggested_reply.trim(),
+        uncertainties: analysis.uncertainties,
+        message_count: history.count,
+        first_message_at: history.firstAt,
+        last_message_at: history.lastAt,
+      }
+      const { error } = await db().from('wo_client_email_analyses').upsert({
+        id: reviewId,
+        client_id: clientId,
+        ...snapshot,
+      }, { onConflict: 'id', ignoreDuplicates: true }).abortSignal(request.signal)
+      if (error) throw error
+      if (request.signal.aborted) return
+      setSaved(true)
+      setPrevious({ ...snapshot, reviewed_at: new Date().toISOString() })
+    } catch {
+      if (!request.signal.aborted) setError('Impossible d’enregistrer la synthèse. Réessayez.')
+    } finally {
+      if (!request.signal.aborted) setBusy(null)
+    }
+  }
+
+  const readOnly = Boolean(busy || disabled || saved)
   return (
-    <section className="wo-ai" aria-label="Analyse d’email avec Gemini">
+    <section className="wo-ai" aria-label="Analyse des échanges Gmail">
       <p className="wo-eyebrow">ASSISTANT GEMINI</p>
-      <h3>Préparer le prochain échange</h3>
-      <p>Collez un email fictif. Son texte sera envoyé à Gemini pour proposer une analyse à relire.</p>
-      <label>Email à analyser
-        <textarea rows={5} maxLength={6000} disabled={busy || disabled}
-          value={email} placeholder="Bonjour, je cherche un forfait avec davantage de données…"
-          onChange={event => {
-            setEmail(event.target.value); setAnalysis(null); setReviewed(false); setApplied(false); setError('')
-          }}
-        />
-      </label>
+      <h3>Historique des échanges</h3>
+      <p>Watchover recherche les messages associés à <strong>{clientEmail}</strong> dans la boîte Gmail de l’entreprise. Le texte des échanges est transmis à Gemini pour préparer une synthèse interne à relire.</p>
       <button type="button" className="wo-button wo-primary"
-        disabled={busy || disabled || email.trim().length < 10} onClick={() => void analyze()}>
-        {busy ? 'Analyse en cours…' : 'Analyser avec Gemini'}
+        disabled={Boolean(busy || disabled)} onClick={() => void run('analyze')}>
+        {busy === 'analyze' ? 'Analyse en cours…' : 'Analyser les échanges Gmail'}
       </button>
-      {busy && <p role="status">Gemini analyse le texte fourni…</p>}
+      {busy === 'analyze' && <p role="status">Recherche dans Gmail et préparation de la synthèse…</p>}
+      {busy === 'connect' && <p role="status">Ouverture de la connexion Google…</p>}
       {error && <p className="wo-alert" role="alert">{error}</p>}
-      {analysis && (
+      {canConnect && (
+        <button type="button" className="wo-button wo-quiet" disabled={Boolean(busy || disabled)}
+          onClick={() => void run('connect')}>
+          Connecter la boîte Gmail
+        </button>
+      )}
+      {loadError && <p className="wo-alert" role="alert">La dernière synthèse enregistrée est indisponible.</p>}
+      {history?.count === 0 && <p role="status">Aucun échange trouvé pour cette adresse dans la boîte Gmail connectée.</p>}
+      {!analysis && previous && (
+        <details className="wo-ai-result">
+          <summary>Dernière synthèse enregistrée le {new Date(previous.reviewed_at).toLocaleDateString('fr-FR')}</summary>
+          <small>{historyLabel({ count: previous.message_count, firstAt: previous.first_message_at, lastAt: previous.last_message_at })}</small>
+          <div><strong>Résumé</strong><p>{previous.summary}</p></div>
+          <div><strong>Besoins</strong><p>{previous.needs}</p></div>
+          <div><strong>Brouillon de réponse</strong><p>{previous.suggested_reply}</p></div>
+          {previous.uncertainties.length > 0 && (
+            <div><strong>Points à vérifier</strong>
+              <ul>{previous.uncertainties.map((item, index) => <li key={index}>{item}</li>)}</ul>
+            </div>
+          )}
+        </details>
+      )}
+      {analysis && history && (
         <div className="wo-ai-result">
-          <small>Proposition de {model} · À vérifier</small>
+          <small>{historyLabel(history)} · {saved ? 'Synthèse enregistrée' : 'Synthèse à vérifier'}</small>
           <label>Résumé à corriger si nécessaire
             <textarea rows={3} maxLength={2000} value={analysis.summary}
-              disabled={disabled || applied} onChange={event => edit('summary', event.target.value)} />
+              disabled={readOnly} onChange={event => edit('summary', event.target.value)} />
           </label>
           <label>Besoins à corriger si nécessaire
             <textarea rows={3} maxLength={2000} value={analysis.needs}
-              disabled={disabled || applied} onChange={event => edit('needs', event.target.value)} />
+              disabled={readOnly} onChange={event => edit('needs', event.target.value)} />
           </label>
           <label>Brouillon de réponse
             <textarea rows={4} maxLength={2000} value={analysis.suggested_reply}
-              disabled={disabled || applied} onChange={event => edit('suggested_reply', event.target.value)} />
+              disabled={readOnly} onChange={event => edit('suggested_reply', event.target.value)} />
           </label>
           {analysis.uncertainties.length > 0 && (
             <div><strong>Points à vérifier</strong>
@@ -110,23 +216,16 @@ export default function EmailAnalysis({ clientId, disabled, onApply }: Props) {
             </div>
           )}
           <label className="wo-ai-confirm">
-            <input type="checkbox" checked={reviewed} disabled={disabled || applied}
+            <input type="checkbox" checked={reviewed} disabled={readOnly}
               onChange={event => setReviewed(event.target.checked)} />
             J’ai relu et corrigé ces propositions.
           </label>
           <button type="button" className="wo-button wo-primary"
-            disabled={disabled || !reviewed || applied || !analysis.summary.trim() || !analysis.needs.trim()}
-            onClick={() => {
-              const text = 'Analyse email relue le ' + new Date().toLocaleString('fr-FR') +
-                '\nRésumé : ' + analysis.summary.trim() + '\nBesoins : ' + analysis.needs.trim() +
-                '\nRéponse proposée : ' + analysis.suggested_reply.trim()
-              if (onApply(text)) setApplied(true)
-            }}>
-            {applied ? 'Ajouté aux notes de la fiche' : 'Ajouter les informations validées aux notes'}
+            disabled={readOnly || !reviewed || !analysis.summary.trim() || !analysis.needs.trim()}
+            onClick={() => void saveAnalysis()}>
+            {busy === 'save' ? 'Enregistrement…' : 'Enregistrer la synthèse interne'}
           </button>
-          {applied && <p className="wo-success" role="status">
-            Les notes sont préparées. Cliquez sur « Enregistrer les modifications » dans la fiche pour les sauvegarder.
-          </p>}
+          {saved && <p className="wo-success" role="status">Synthèse interne enregistrée.</p>}
         </div>
       )}
     </section>
