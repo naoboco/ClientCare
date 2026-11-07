@@ -136,3 +136,14 @@
 .wo-followup-fields { display:grid; gap:10px; padding:16px; border:1px solid #e3e9ec; border-radius:10px; background:#fafcfc; }
 .wo-followup-fields > small { color:#62767c; font-size:11px; }
 .wo-followup-fields > button { justify-self:start; }
+
+.wo-ai { display:grid; gap:14px; margin-top:26px; padding-top:24px; border-top:1px solid #dfe7eb; }
+.wo-ai h3 { margin:0; font-size:20px; }
+.wo-ai > p { margin:0; color:#62767c; font-size:12px; }
+.wo-ai .wo-eyebrow { color:var(--wo-accent); }
+.wo-ai > button, .wo-ai-result > button { justify-self:start; }
+.wo-ai-result { display:grid; gap:14px; padding:18px; background:var(--wo-tint); border-radius:12px; }
+.wo-ai-result > small { color:#5b7178; }
+.wo-ai-confirm { display:flex !important; align-items:start; gap:10px !important; }
+.wo-ai-confirm input[type="checkbox"] { width:18px; min-height:18px; height:18px; flex-shrink:0; margin:0; accent-color:var(--wo-accent); }
+.wo-ai-result ul { margin:6px 0 0; padding-left:20px; font-size:12px; }

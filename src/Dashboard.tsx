@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
 import type { Profile } from './lib/auth'
 import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
+import EmailAnalysis from './EmailAnalysis.tsx'
 import './Dashboard.css'
 
 type Client = {
@@ -221,6 +222,17 @@ export default function Dashboard({
     setSelected(current => current ? { ...current, [field]: value } : null)
     setSaved(false)
     setSaveError('')
+  }
+
+  function acceptAiNotes(text: string): boolean {
+    if (!selected || saving) return false
+    const combined = [selected.needs.trim(), text].filter(Boolean).join('\n\n')
+    if (combined.length > 6000) {
+      setSaveError('Les notes dépassent 6000 caractères. Raccourcissez-les avant d’ajouter cette analyse.')
+      return false
+    }
+    change('needs', combined)
+    return true
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -743,6 +755,10 @@ export default function Dashboard({
                       {dirty && <small>Modifications non enregistrées</small>}
                     </div>
                   </form>
+                  {editable && (
+                    <EmailAnalysis key={selected.id} clientId={selected.id}
+                      disabled={saving} onApply={acceptAiNotes} />
+                  )}
                 </section>
               ) : (
                 <section className="wo-detail wo-empty">
