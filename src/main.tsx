@@ -9,8 +9,11 @@ import Dashboard from './Dashboard.tsx'
 import { supabase } from './lib/olimline'
 import { loadProfile, signOut, type Profile } from './lib/auth'
 import PasswordReset from './PasswordReset.tsx'
+import StaffInvitation from './StaffInvitation.tsx'
+import TeamAccess from './TeamAccess.tsx'
+import { staffInvitePath, staffLoginPaths, teamAccessPath, type StaffRole } from './lib/staffAccess'
 
-type Identity = { userId: string | null }
+type Identity = { userId: string | null; email: string | null }
 type AccountResult = {
   identity: Identity
   profile?: Profile
@@ -23,7 +26,11 @@ const roleNames = {
   admin: 'Administratrice',
 }
 
-function Account() {
+function Account({ hash, requiredRole, inviteToken }: {
+  hash: string
+  requiredRole?: StaffRole
+  inviteToken: string | null
+}) {
   const [identity, setIdentity] = useState<Identity | null>(null)
   const [result, setResult] = useState<AccountResult | null>(null)
   const [logoutError, setLogoutError] = useState('')
@@ -33,7 +40,7 @@ function Account() {
     if (!supabase) return
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIdentity({ userId: session?.user.id ?? null })
+      setIdentity({ userId: session?.user.id ?? null, email: session?.user.email ?? null })
       setLogoutError('')
     })
 
@@ -41,7 +48,7 @@ function Account() {
   }, [])
 
   useEffect(() => {
-    if (!identity?.userId) return
+    if (!identity?.userId || inviteToken !== null) return
     let active = true
 
     loadProfile(identity.userId).then(
@@ -59,7 +66,7 @@ function Account() {
     )
 
     return () => { active = false }
-  }, [identity])
+  }, [identity, inviteToken])
 
   async function handleLogout() {
     if (busy) return
@@ -68,7 +75,8 @@ function Account() {
 
     try {
       await signOut()
-      window.location.hash = '#/olimline/connexion'
+      if (requiredRole) window.location.hash = staffLoginPaths[requiredRole]
+      else if (inviteToken === null) window.location.hash = '#/olimline/connexion'
     } catch {
       setLogoutError('La déconnexion a échoué. Réessayez.')
     } finally {
@@ -92,11 +100,19 @@ function Account() {
     )
   }
 
+  if (inviteToken !== null) {
+    return <StaffInvitation token={inviteToken}
+      email={identity.userId ? identity.email ?? '' : null}
+      onLogout={handleLogout} logoutBusy={busy} logoutError={logoutError} />
+  }
+
   if (!identity.userId) {
     return (
       <Login
+        title={requiredRole === 'admin' ? 'Connexion administrateur'
+          : requiredRole === 'coordinator' ? 'Connexion coordinateur' : undefined}
         onConnected={() => {
-          window.location.hash = '#/olimline/espace'
+          if (!requiredRole) window.location.hash = '#/olimline/espace'
         }}
       />
     )
@@ -104,6 +120,23 @@ function Account() {
 
   const current = result?.identity === identity ? result : null
   const profile = current?.profile
+
+  if (profile && requiredRole && profile.role !== requiredRole) {
+    return (
+      <main className="olimline-account">
+        <h1>Accès réservé</h1>
+        <p role="alert">Connectez-vous avec un compte autorisé pour cet espace.</p>
+        {logoutError && <p role="alert">{logoutError}</p>}
+        <button type="button" onClick={handleLogout} disabled={busy}>
+          {busy ? 'Déconnexion…' : 'Changer de compte'}
+        </button>
+      </main>
+    )
+  }
+
+  if (profile?.role === 'admin' && hash === teamAccessPath) {
+    return <TeamAccess key={profile.organization_id} organizationId={profile.organization_id} />
+  }
 
   return profile ? (
     <Dashboard
@@ -136,7 +169,11 @@ function subscribeToHash(onChange: () => void) {
 function Website() {
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash)
   const isOlimline = hash === '#/olimline' || hash.startsWith('#/olimline/')
+  const inviteToken = hash.startsWith(staffInvitePath) ? hash.slice(staffInvitePath.length) : null
+  const requiredRole = hash === staffLoginPaths.coordinator ? 'coordinator'
+    : hash === staffLoginPaths.admin || hash === teamAccessPath ? 'admin' : undefined
   const isAccount = hash === '#/olimline/connexion' || hash === '#/olimline/espace'
+    || requiredRole !== undefined || inviteToken !== null
   const resetMode = hash === '#/olimline/mot-de-passe'
     ? 'request'
     : hash === '#/olimline/nouveau-mot-de-passe' ? 'update' : null
@@ -156,9 +193,9 @@ function Website() {
         ? 'Olimline — Les liens qui comptent'
         : 'Watchover — Your business. Your way.'
 
-    document.documentElement.lang = isOlimline ? 'fr' : 'en'
+    document.documentElement.lang = isOlimline || isAuthPage ? 'fr' : 'en'
 
-    if (isOlimline) {
+    if (isOlimline || isAuthPage) {
       const section = isAuthPage ? '' : hash.split('/')[2]
       const target = section ? document.getElementById('ol-' + section) : null
 
@@ -170,7 +207,10 @@ function Website() {
   }, [hash, isOlimline, isAuthPage])
 
   if (resetMode) return <PasswordReset key={resetMode} mode={resetMode} />
-  return isAccount ? <Account /> : isOlimline ? <Olimline /> : <App />
+  if (isAccount) {
+    return <Account key={inviteToken ?? 'account'} hash={hash} requiredRole={requiredRole} inviteToken={inviteToken} />
+  }
+  return isOlimline ? <Olimline /> : <App />
 }
 
 createRoot(document.getElementById('root')!).render(

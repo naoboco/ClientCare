@@ -400,6 +400,12 @@ export default function Dashboard({
               <strong>{profile.full_name}</strong>
               <small>{roleLabel}</small>
             </div>
+            {admin && (
+              <a className="wo-button wo-quiet" href="#/watchover/equipe/invitations"
+                onClick={event => { if (!mayLeave()) event.preventDefault() }}>
+                Accès de l’équipe
+              </a>
+            )}
             <button
               type="button"
               className="wo-button wo-quiet"

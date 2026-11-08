@@ -20,3 +20,20 @@
 .olimline-login button, .olimline-account button { min-height: 46px; padding: 12px 20px; border: 0; border-radius: 10px; background: #087951; color: #fff; font: inherit; cursor: pointer; }
 .olimline-login button:disabled, .olimline-account button:disabled { opacity: .6; cursor: wait; }
 .olimline-login [role="alert"], .olimline-account [role="alert"] { color: #a12b20; }
+
+.wo-staff-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.wo-team-access { width: min(760px, calc(100% - 32px)); }
+.wo-team-access section { margin-top: 26px; }
+.wo-staff-form { display: grid; gap: 14px; grid-template-columns: 2fr 1fr; align-items: end; }
+.wo-team-access label { display: grid; gap: 6px; }
+.wo-team-access input, .wo-team-access select { width: 100%; min-width: 0; min-height: 46px; padding: 10px; border: 1px solid #9fb8ad; border-radius: 8px; font: inherit; }
+.wo-staff-form > button { grid-column: 1 / -1; justify-self: start; }
+.wo-staff-created { margin-top: 16px; padding: 16px; background: #edf8f2; border-radius: 10px; }
+.wo-staff-created button { margin-top: 10px; }
+.wo-staff-invitations { list-style: none; padding: 0; }
+.wo-staff-invitations li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #dce8e2; }
+
+@media (max-width: 580px) {
+  .wo-staff-form { grid-template-columns: 1fr; }
+  .wo-staff-invitations li { align-items: start; flex-direction: column; }
+}
