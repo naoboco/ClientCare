@@ -1,9 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
 import type { Profile } from './lib/auth'
 import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
 import EmailAnalysis from './EmailAnalysis.tsx'
 import './Dashboard.css'
+
+const WorkspaceSettings = lazy(() => import('./WorkspaceSettings.tsx'))
 
 type Client = {
   id: string
@@ -43,6 +45,7 @@ type Props = {
 }
 
 const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at'
+const tabLabels = { clients: 'Relation client', plans: 'Catalogue', settings: 'Configuration' }
 
 function messageOf(error: unknown) {
   return error && typeof error === 'object' && 'message' in error
@@ -94,7 +97,8 @@ export default function Dashboard({
   const admin = profile.role === 'admin'
   const editable = profile.role !== 'client'
 
-  const [tab, setTab] = useState<'clients' | 'plans'>('clients')
+  const [tab, setTab] = useState<keyof typeof tabLabels>('clients')
+  const configuring = tab === 'settings'
   const [clients, setClients] = useState<Client[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
@@ -214,6 +218,13 @@ export default function Dashboard({
     setSelected({ ...client })
     setSaved(false)
     setSaveError('')
+  }
+
+  function openSettings() {
+    if (configuring || !mayLeave()) return
+    if (dirty && original) setSelected({ ...original })
+    setTab('settings')
+    window.scrollTo(0, 0)
   }
 
   function change<
@@ -359,6 +370,14 @@ export default function Dashboard({
             <span aria-hidden="true">▤</span>
             Catalogue des forfaits
           </button>
+
+          {admin && (
+            <button type="button" className={configuring ? 'active' : ''}
+              aria-current={configuring ? 'page' : undefined} onClick={openSettings}>
+              <span aria-hidden="true">⚙</span>
+              Configuration
+            </button>
+          )}
         </nav>
 
         <div className="wo-sidebar-bottom">
@@ -372,7 +391,7 @@ export default function Dashboard({
         <header className="wo-topbar">
           <span>
             Olimline <span aria-hidden="true">/</span>
-            {tab === 'clients' ? 'Relation client' : 'Catalogue'}
+            {tabLabels[tab]}
           </span>
 
           <div className="wo-user">
@@ -397,7 +416,15 @@ export default function Dashboard({
             <p className="wo-alert" role="alert">{logoutError}</p>
           )}
 
-          <section className="wo-welcome">
+          {admin && configuring && (
+            <Suspense fallback={<p role="status">Ouverture de la configuration…</p>}>
+              <WorkspaceSettings key={profile.organization_id}
+                organizationId={profile.organization_id}
+                onImported={() => setRevision(value => value + 1)} />
+            </Suspense>
+          )}
+
+          <section className="wo-welcome" hidden={configuring}>
             <div>
               <p className="wo-eyebrow">VOTRE ENTREPRISE. VOTRE MANIÈRE.</p>
               <h1>
@@ -416,7 +443,7 @@ export default function Dashboard({
             <span className="wo-welcome-mark" aria-hidden="true">O.</span>
           </section>
 
-          <div className="wo-metrics">
+          <div className="wo-metrics" hidden={configuring}>
             {metrics.map(([label, value]) => (
               <article key={String(label)}>
                 <span>{label}</span>
@@ -425,7 +452,7 @@ export default function Dashboard({
             ))}
           </div>
 
-          <div className="wo-section-heading">
+          <div className="wo-section-heading" hidden={configuring}>
             <div>
               <p className="wo-eyebrow">
                 {tab === 'clients' ? 'RELATION CLIENT' : 'OFFRES OLIMLINE'}
@@ -451,13 +478,13 @@ export default function Dashboard({
             </button>
           </div>
 
-          {loading && (
+          {!configuring && loading && (
             <div className="wo-empty" role="status">
               Chargement de votre espace…
             </div>
           )}
 
-          {loadError && (
+          {!configuring && loadError && (
             <p className="wo-alert" role="alert">
               Impossible de charger les données : {loadError}.
               Utilisez « Actualiser » pour réessayer.

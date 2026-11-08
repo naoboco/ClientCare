@@ -40,6 +40,7 @@
 .wo-user small { color:#62767c; }
 .wo-avatar { width:38px; height:38px; display:grid; place-items:center; flex-shrink:0; border-radius:12px; background:var(--wo-tint); color:var(--wo-accent); font-size:12px; font-weight:800; }
 .wo-content { padding:30px 34px 18px; max-width:1600px; margin:auto; }
+.wo-content > [hidden] { display:none; }
 .wo-welcome { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:30px; border:1px solid #e8edf0; border-radius:18px; background:linear-gradient(110deg,#fff 35%,var(--wo-tint)); overflow:hidden; }
 .wo-eyebrow { color:var(--wo-accent); font-size:10px; letter-spacing:2px; font-weight:800; margin:0 0 8px; }
 .wo-welcome h1 { font-size:clamp(27px,3vw,40px); line-height:1.15; letter-spacing:-1.5px; margin:0 0 12px; color:#16373c; }
@@ -147,3 +148,8 @@
 .wo-ai-confirm { display:flex !important; align-items:start; gap:10px !important; }
 .wo-ai-confirm input[type="checkbox"] { width:18px; min-height:18px; height:18px; flex-shrink:0; margin:0; accent-color:var(--wo-accent); }
 .wo-ai-result ul { margin:6px 0 0; padding-left:20px; font-size:12px; }
+
+@media (max-width:420px) {
+  .wo-workspace[data-role="admin"] .wo-sidebar nav { flex-wrap:wrap; }
+  .wo-workspace[data-role="admin"] .wo-sidebar nav button { flex:1 1 130px; }
+}
