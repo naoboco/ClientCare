@@ -1,0 +1,33 @@
+.wo-workspace.wo-quiz-page { display: block; --wo-accent: #087951; --wo-tint: #edf8f2; }
+.wo-quiz-main { max-width: 1080px; margin: auto; padding: 28px clamp(16px, 5vw, 44px) 48px; }
+.wo-quiz-back { display: inline-block; margin-bottom: 16px; text-decoration: underline; }
+.wo-quiz-progress { margin: 22px 0; }
+.wo-quiz-progress-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.wo-quiz-progress progress { display: block; width: 100%; height: 12px; margin: 8px 0 12px; accent-color: var(--wo-accent); }
+.wo-quiz-progress ol { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0; padding: 0; list-style: none; color: #586f74; }
+.wo-quiz-progress [aria-current] { color: var(--wo-accent); font-weight: 750; }
+.wo-quiz-form h2, .wo-quiz-form h3 { margin: 0; }
+.wo-quiz-fields, .wo-quiz-group { border: 0; margin: 0; padding: 0; min-width: 0; }
+.wo-quiz-fields { display: grid; gap: 18px; }
+.wo-quiz-group legend { margin-bottom: 8px; padding: 0; font-weight: 700; }
+.wo-quiz-options, .wo-quiz-styles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.wo-workspace .wo-quiz-check { display: flex; align-items: center; gap: 8px; min-height: 38px; }
+.wo-quiz-options .wo-quiz-check { padding: 6px 10px; border: 1px solid #d8e2e6; border-radius: 8px; }
+.wo-quiz-page .wo-quiz-check input { width: 18px; height: 18px; min-height: 18px; flex-shrink: 0; margin: 0; padding: 0; accent-color: var(--wo-accent); }
+.wo-quiz-channel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; gap: 10px; align-items: end; }
+.wo-quiz-inline { justify-self: start; }
+.wo-quiz-hint { color: #586f74; margin: 0; }
+.wo-quiz-style { border: 1px solid #d8e2e6; border-radius: 12px; padding: 8px; cursor: pointer; }
+.wo-quiz-style:has(:checked) { border-color: var(--wo-accent); background: var(--wo-tint); }
+.wo-quiz-style img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; object-position: top; border-radius: 8px; }
+.wo-quiz-review dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 0 0 16px; }
+.wo-quiz-review dl > div { background: #f5f7fa; border-radius: 8px; padding: 10px; overflow-wrap: anywhere; }
+.wo-quiz-review dt { font-weight: 700; }
+.wo-quiz-review dd { margin: 4px 0 0; white-space: pre-wrap; }
+.wo-quiz-review ul { overflow-wrap: anywhere; }
+
+@media (max-width: 620px) {
+  .wo-quiz-channel, .wo-quiz-options, .wo-quiz-review dl { grid-template-columns: 1fr; }
+  .wo-quiz-channel { padding-bottom: 12px; border-bottom: 1px solid #d8e2e6; }
+  .wo-quiz-channel > button { justify-self: start; }
+}

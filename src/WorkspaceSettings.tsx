@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ClientImport from './ClientImport'
 import { db } from './lib/olimline'
+import { crmQuestionnairePath } from './lib/staffAccess'
 import './WorkspaceSettings.css'
 
 type AiProvider = '' | 'gemini' | 'claude' | 'openai'
@@ -102,6 +103,7 @@ export default function WorkspaceSettings({ organizationId, onImported }: {
           <p className="wo-eyebrow">ADMINISTRATION</p>
           <h1>Configuration de l’entreprise</h1>
           <p>Choisissez les assistants souhaités, les canaux à raccorder et les clients à importer.</p>
+          <a className="wo-button wo-primary wo-setup-questionnaire" href={crmQuestionnairePath}>Ouvrir le questionnaire CRM</a>
         </div>
         <span className="wo-welcome-mark" aria-hidden="true">W.</span>
       </section>

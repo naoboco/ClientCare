@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState, useSyncExternalStore } from 'react'
+import { lazy, StrictMode, Suspense, useEffect, useState, useSyncExternalStore } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './Account.css'
@@ -11,7 +11,9 @@ import { loadProfile, signOut, type Profile } from './lib/auth'
 import PasswordReset from './PasswordReset.tsx'
 import StaffInvitation from './StaffInvitation.tsx'
 import TeamAccess from './TeamAccess.tsx'
-import { staffInvitePath, staffLoginPaths, teamAccessPath, type StaffRole } from './lib/staffAccess'
+import { crmQuestionnairePath, staffInvitePath, staffLoginPaths, teamAccessPath, type StaffRole } from './lib/staffAccess'
+
+const CrmQuestionnaire = lazy(() => import('./CrmQuestionnaire.tsx'))
 
 type Identity = { userId: string | null; email: string | null }
 type AccountResult = {
@@ -138,6 +140,14 @@ function Account({ hash, requiredRole, inviteToken }: {
     return <TeamAccess key={profile.organization_id} organizationId={profile.organization_id} />
   }
 
+  if (profile?.role === 'admin' && hash === crmQuestionnairePath) {
+    return (
+      <Suspense fallback={<p className="olimline-account" role="status">Ouverture du questionnaire…</p>}>
+        <CrmQuestionnaire key={profile.organization_id} organizationId={profile.organization_id} />
+      </Suspense>
+    )
+  }
+
   return profile ? (
     <Dashboard
       key={profile.id}
@@ -171,7 +181,7 @@ function Website() {
   const isOlimline = hash === '#/olimline' || hash.startsWith('#/olimline/')
   const inviteToken = hash.startsWith(staffInvitePath) ? hash.slice(staffInvitePath.length) : null
   const requiredRole = hash === staffLoginPaths.coordinator ? 'coordinator'
-    : hash === staffLoginPaths.admin || hash === teamAccessPath ? 'admin' : undefined
+    : hash === staffLoginPaths.admin || hash === teamAccessPath || hash === crmQuestionnairePath ? 'admin' : undefined
   const isAccount = hash === '#/olimline/connexion' || hash === '#/olimline/espace'
     || requiredRole !== undefined || inviteToken !== null
   const resetMode = hash === '#/olimline/mot-de-passe'
