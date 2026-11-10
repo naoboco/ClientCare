@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type FormEvent } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
 import type { Profile } from './lib/auth'
 import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
@@ -18,6 +18,7 @@ type Client = {
   created_at: string
   last_contact_at: string | null
   next_followup_at: string | null
+  archived_at: string | null
 }
 
 type Plan = {
@@ -44,7 +45,7 @@ type Props = {
   logoutError: string
 }
 
-const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at'
+const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at, archived_at'
 const tabLabels = { clients: 'Relation client', plans: 'Catalogue', settings: 'Configuration' }
 
 function messageOf(error: unknown) {
@@ -91,6 +92,91 @@ function exportCsv(rows: Client[]) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+function CreateClientDialog({ onCreated, onClose }: {
+  onCreated: (client: Client) => void
+  onClose: () => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const element = dialog.current
+    element?.showModal()
+    return () => element?.close()
+  }, [])
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (busy) return
+
+    const form = new FormData(event.currentTarget)
+    const fullName = String(form.get('full_name') ?? '').trim()
+    if (!fullName) {
+      setError('Le nom est obligatoire.')
+      return
+    }
+
+    setBusy(true)
+    setError('')
+    try {
+      const { data, error: problem } = await db().rpc('wo_create_client', {
+        p_full_name: fullName,
+        p_email: String(form.get('email') ?? '').trim(),
+        p_phone: String(form.get('phone') ?? ''),
+        p_needs: String(form.get('needs') ?? ''),
+      }).select(fields).single()
+
+      if (problem?.code === '23505') {
+        setError('Une fiche utilise déjà cette adresse e-mail dans l’entreprise.')
+      } else if (problem) {
+        throw problem
+      } else {
+        onCreated(data as Client)
+      }
+    } catch (problem) {
+      setError(messageOf(problem))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <dialog ref={dialog} className="wo-detail wo-create-client" aria-labelledby="wo-create-title"
+      onCancel={event => {
+        event.preventDefault()
+        if (!busy) onClose()
+      }}>
+      <h2 id="wo-create-title">Nouvelle fiche client</h2>
+      <form className="wo-form" onSubmit={create} aria-busy={busy}>
+        <fieldset disabled={busy} className="wo-form wo-create-fields">
+          <label>Nom complet
+            <input name="full_name" required maxLength={160} autoFocus />
+          </label>
+          <label>Adresse e-mail
+            <input name="email" type="email" required maxLength={254} />
+          </label>
+          <label>Téléphone
+            <input name="phone" type="tel" maxLength={60} />
+          </label>
+          <label>Besoins et notes de suivi
+            <textarea name="needs" rows={3} maxLength={6000} />
+          </label>
+        </fieldset>
+        {error && <p className="wo-alert" role="alert">{error}</p>}
+        <div className="wo-form-actions">
+          <button type="submit" className="wo-button wo-primary" disabled={busy}>
+            {busy ? 'Création…' : 'Créer la fiche'}
+          </button>
+          <button type="button" className="wo-button wo-quiet" disabled={busy} onClick={onClose}>
+            Annuler
+          </button>
+        </div>
+      </form>
+    </dialog>
+  )
+}
+
 export default function Dashboard({
   profile, roleLabel, onLogout, logoutBusy, logoutError,
 }: Props) {
@@ -111,6 +197,9 @@ export default function Dashboard({
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saved, setSaved] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [notice, setNotice] = useState('')
+  const noticeRef = useRef<HTMLParagraphElement>(null)
   const [now, setNow] = useState(() => Date.now())
 
   const original = clients.find(client => client.id === selected?.id)
@@ -171,7 +260,8 @@ export default function Dashboard({
         setClients(rows)
         setPlans((planResult.data ?? []) as Plan[])
         setStaff((staffResult.data ?? []) as Staff[])
-        setSelected(rows[0] ? { ...rows[0] } : null)
+        const first = profile.role === 'client' ? rows[0] : rows.find(row => !row.archived_at)
+        setSelected(first ? { ...first } : null)
         setSaved(false)
         setSaveError('')
       } catch (error) {
@@ -193,6 +283,10 @@ export default function Dashboard({
     const timer = window.setInterval(() => setNow(Date.now()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (notice) noticeRef.current?.focus()
+  }, [notice])
 
   useEffect(() => {
     if (!dirty) return
@@ -218,6 +312,72 @@ export default function Dashboard({
     setSelected({ ...client })
     setSaved(false)
     setSaveError('')
+  }
+
+  function openCreation() {
+    if (!mayLeave()) return
+    if (dirty && original) setSelected({ ...original })
+    setNotice('')
+    setCreating(true)
+  }
+
+  function storeClient(row: Client) {
+    setClients(current => [...current.filter(client => client.id !== row.id), row]
+      .sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr')))
+  }
+
+  function onCreated(client: Client) {
+    storeClient(client)
+    setCreating(false)
+    setSearch('')
+    setFilter('all')
+    setSelected(client)
+    setSaved(false)
+    setSaveError('')
+    setNotice('Fiche client créée.')
+  }
+
+  function changeFilter(value: string) {
+    if ((value === 'archived') !== (filter === 'archived')) {
+      if (!mayLeave()) return
+      setSelected(null)
+      setSearch('')
+      setSaved(false)
+      setSaveError('')
+    }
+    setFilter(value)
+  }
+
+  async function changeArchive() {
+    if (!editable || !selected || !mayLeave()) return
+    const archived = !selected.archived_at
+    setSaving(true)
+    setSaved(false)
+    setSaveError('')
+    setNotice('')
+    try {
+      const { data, error } = await db().rpc('wo_set_client_archive', {
+        p_client_id: selected.id,
+        p_archived: archived,
+      }).select(fields).single()
+
+      if (error) throw error
+
+      const updated = data as Client
+      storeClient(updated)
+      setSelected(archived ? null : updated)
+      if (!archived) {
+        setFilter('all')
+        setSearch('')
+      }
+      setNotice(archived
+        ? 'Fiche archivée. Retrouvez-la dans « Fiches archivées ».'
+        : 'Fiche restaurée dans le portefeuille actif.')
+    } catch (error) {
+      setSaveError(messageOf(error))
+    } finally {
+      setSaving(false)
+    }
   }
 
   function openSettings() {
@@ -276,10 +436,7 @@ export default function Dashboard({
 
       const updated = data as Client
 
-      setClients(current => current
-        .map(client => client.id === updated.id ? updated : client)
-        .sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr')))
-
+      storeClient(updated)
       setSelected(updated)
       setSaved(true)
     } catch (error) {
@@ -289,13 +446,16 @@ export default function Dashboard({
     }
   }
 
-  const visible = clients.filter(client => {
+  const archivedView = filter === 'archived'
+  const activeClients = clients.filter(client => !client.archived_at)
+  const listedClients = archivedView ? clients.filter(client => client.archived_at) : activeClients
+  const visible = listedClients.filter(client => {
     const match = normalize([
       client.full_name, client.email, client.phone, client.needs,
     ].join(' ')).includes(normalize(search))
 
     return match && (
-      filter === 'all' ||
+      filter === 'all' || archivedView ||
       (filter === 'needs' && !client.needs.trim()) ||
       (filter === 'overdue' && isOverdue(client, now)) ||
       (filter === 'phone' && !client.phone.trim()) ||
@@ -303,14 +463,14 @@ export default function Dashboard({
     )
   })
 
-  const overdueCount = clients.filter(client => isOverdue(client, now)).length
+  const overdueCount = activeClients.filter(client => isOverdue(client, now)).length
   const ready = !loading && !loadError
   const metrics = [
-    [editable ? 'Clients accessibles' : 'Mon dossier', clients.length],
+    editable ? ['Clients actifs', activeClients.length] : ['Mon dossier', clients.length],
     ['Relances en retard', overdueCount],
     [
       admin ? 'Clients à attribuer' : 'Téléphones renseignés',
-      clients.filter(client =>
+      activeClients.filter(client =>
         admin ? !client.coordinator_id : client.phone.trim()
       ).length,
     ],
@@ -469,19 +629,28 @@ export default function Dashboard({
                   : editable ? 'Votre portefeuille' : 'Mon dossier'}
               </h2>
             </div>
-            <button
-              className="wo-button wo-quiet"
-              type="button"
-              disabled={loading || saving}
-              onClick={() => {
-                if (mayLeave()) {
-                  setSelected(null)
-                  setRevision(value => value + 1)
-                }
-              }}
-            >
-              Actualiser
-            </button>
+            <div className="wo-form-actions">
+              {editable && ready && tab === 'clients' && (
+                <button className="wo-button wo-primary" type="button"
+                  disabled={saving} onClick={openCreation}>
+                  Nouvelle fiche
+                </button>
+              )}
+              <button
+                className="wo-button wo-quiet"
+                type="button"
+                disabled={loading || saving}
+                onClick={() => {
+                  if (mayLeave()) {
+                    setSelected(null)
+                    setNotice('')
+                    setRevision(value => value + 1)
+                  }
+                }}
+              >
+                Actualiser
+              </button>
+            </div>
           </div>
 
           {!configuring && loading && (
@@ -526,7 +695,9 @@ export default function Dashboard({
           )}
 
           {ready && tab === 'clients' && <>
-            {editable && overdueCount > 0 && (
+            {creating && <CreateClientDialog onCreated={onCreated} onClose={() => setCreating(false)} />}
+            {notice && <p ref={noticeRef} className="wo-success" role="status" tabIndex={-1}>{notice}</p>}
+            {editable && !archivedView && overdueCount > 0 && (
               <div className="wo-alert wo-followup-alert" role="status">
                 <strong>{overdueCount} relance{overdueCount > 1 ? 's' : ''} en retard.</strong>
                 <button type="button" className="wo-button wo-quiet"
@@ -550,13 +721,14 @@ export default function Dashboard({
                   Afficher
                   <select
                     value={filter}
-                    onChange={event => setFilter(event.target.value)}
+                    onChange={event => changeFilter(event.target.value)}
                   >
-                    <option value="all">Tous les clients</option>
+                    <option value="all">Clients actifs</option>
                     <option value="overdue">Relances en retard</option>
                     <option value="needs">Besoins à préciser</option>
                     <option value="phone">Téléphone manquant</option>
                     {admin && <option value="unassigned">Sans responsable</option>}
+                    <option value="archived">Fiches archivées</option>
                   </select>
                 </label>
                 <button
@@ -576,7 +748,7 @@ export default function Dashboard({
               {editable && (
                 <section className="wo-client-list" aria-label="Liste des clients">
                   <div className="wo-list-heading">
-                    <strong>Clients</strong>
+                    <strong>{archivedView ? 'Fiches archivées' : 'Clients actifs'}</strong>
                     <span aria-live="polite">
                       {visible.length} résultat{visible.length > 1 ? 's' : ''}
                     </span>
@@ -600,35 +772,43 @@ export default function Dashboard({
                         <span className="wo-row-note">
                           {client.needs || 'Besoins à préciser'}
                         </span>
-                        <span className="wo-followup" data-overdue={isOverdue(client, now)}>
-                          {client.next_followup_at
-                            ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
-                              formatContactDate(client.next_followup_at)
-                            : 'Relance à planifier'}
-                        </span>
+                        {client.archived_at ? (
+                          <span className="wo-followup">Archivée le {formatContactDate(client.archived_at)}</span>
+                        ) : (
+                          <span className="wo-followup" data-overdue={isOverdue(client, now)}>
+                            {client.next_followup_at
+                              ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
+                                formatContactDate(client.next_followup_at)
+                              : 'Relance à planifier'}
+                          </span>
+                        )}
                       </span>
                       <span aria-hidden="true">›</span>
                     </button>
                   )) : (
                     <p className="wo-empty">
-                      {clients.length
+                      {listedClients.length
                         ? 'Aucun résultat pour cette recherche.'
+                        : archivedView
+                          ? 'Aucune fiche archivée.'
                         : admin
-                          ? 'Aucun client dans votre portefeuille.'
-                          : 'Aucun client attribué. Contactez votre administratrice.'}
+                          ? 'Aucun client actif dans votre portefeuille.'
+                          : 'Aucun client actif attribué.'}
                     </p>
                   )}
                 </section>
               )}
 
-              {selected ? (
+              {selected && (!editable || Boolean(selected.archived_at) === archivedView) ? (
                 <section className="wo-detail" aria-labelledby="wo-client-title">
                   <div className="wo-detail-top">
                     <span className="wo-avatar wo-avatar-large">
                       {initials(selected.full_name)}
                     </span>
                     <div>
-                      <span className="wo-badge">Fiche client</span>
+                      <span className="wo-badge">
+                        {editable && selected.archived_at ? 'Fiche archivée' : 'Fiche client'}
+                      </span>
                       <h2 id="wo-client-title">{selected.full_name}</h2>
                       <a href={'mailto:' + encodeURIComponent(selected.email)}>
                         {selected.email}
@@ -773,6 +953,13 @@ export default function Dashboard({
                       >
                         {editable ? 'Préparer un email ↗' : 'Contacter Olimline ↗'}
                       </a>
+
+                      {editable && (
+                        <button type="button" className="wo-button wo-quiet" disabled={saving}
+                          onClick={() => void changeArchive()}>
+                          {selected.archived_at ? 'Restaurer la fiche' : 'Archiver la fiche'}
+                        </button>
+                      )}
 
                       {dirty && <small>Modifications non enregistrées</small>}
                     </div>

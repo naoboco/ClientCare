@@ -50,7 +50,7 @@
 .wo-metrics article { padding:18px 20px; border:1px solid #e3e9ec; border-radius:13px; background:white; }
 .wo-metrics span { display:block; font-size:12px; color:#62767c; }
 .wo-metrics strong { display:block; margin-top:4px; font-size:30px; letter-spacing:-1px; font-weight:750; }
-.wo-section-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
+.wo-section-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; }
 .wo-section-heading h2 { margin:0; font-size:22px; letter-spacing:-.6px; }
 .wo-button { display:inline-flex; justify-content:center; align-items:center; gap:8px; min-height:42px; padding:10px 15px; border:1px solid transparent; border-radius:9px; font-weight:650; font-size:12px; line-height:1.4; text-decoration:none; }
 .wo-quiet { color:#36535a; background:white; border-color:#dce5e9; }
@@ -85,6 +85,10 @@
 .wo-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .wo-form-actions { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 .wo-form-actions small { color:#805924; font-size:11px; }
+.wo-create-client { width:min(540px, calc(100% - 28px)); max-height:calc(100dvh - 28px); margin:auto; overflow:auto; color:inherit; }
+.wo-create-client::backdrop { background:#102d3470; }
+.wo-create-client h2 { margin:0 0 16px; }
+.wo-create-fields { min-width:0; padding:0; border:0; margin:0; }
 .wo-alert, .wo-success { padding:13px 15px; border-radius:9px; overflow-wrap:anywhere; }
 .wo-alert { color:#982b24; background:#fff1ef; border:1px solid #f3d2ce; }
 .wo-success { color:#166443; background:#ecf9f1; border:1px solid #cce9d8; }
