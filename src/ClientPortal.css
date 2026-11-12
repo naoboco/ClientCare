@@ -313,6 +313,17 @@
 .cp-staff .cp-actions { margin: 12px 0; }
 .cp-staff .cp-inline-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
 .cp-inline-form label { flex: 1 1 175px; }
+.cp-journey-analysis { display: grid; gap: 9px; margin: 14px 0; }
+.cp-journey-analysis h4 { margin: 0; }
+.cp-document-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.cp-document-filters button[aria-pressed="true"] {
+  background: var(--cp-tint);
+  border-color: var(--cp-accent);
+  color: var(--cp-ink);
+}
+.cp-analysis-priorities ol { margin: 10px 0 0; padding-inline-start: 24px; }
+.cp-analysis-priorities li + li { margin-top: 10px; }
+.cp-analysis-priorities li p { margin: 4px 0 0; }
 
 .cp-staff .cp-household { border-top: 1px solid var(--cp-line); margin-top: 18px; padding-top: 16px; }
 .cp-household h4 { margin: 0; }

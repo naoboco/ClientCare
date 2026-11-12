@@ -72,7 +72,7 @@ function Progress({ journey, contact, documents }: Pick<PortalData, 'journey' | 
 
       {!journey && <p className="cp-progress-note">Le produit et les pièces à fournir apparaîtront ici dès que l’équipe ouvrira votre suivi.</p>}
       {journey?.stage === 'collecting' && (
-        <p className="cp-progress-note">
+        <p className="cp-progress-note" role="status">
           {!contact.contact_confirmed && <>Confirmez vos coordonnées. </>}
           {needsDocument.length > 0 && (
             <>{needsDocument.length} {needsDocument.length === 1 ? 'pièce est à fournir ou à remplacer.' : 'pièces sont à fournir ou à remplacer.'} </>
@@ -82,6 +82,12 @@ function Progress({ journey, contact, documents }: Pick<PortalData, 'journey' | 
           )}
           {contact.contact_confirmed && documentsReady && <>Votre dossier attend sa mise en traitement par l’équipe.</>}
         </p>
+      )}
+      {journey?.stage === 'collecting' && needsDocument.length > 0 && (
+        <button type="button" className="cp-button cp-button-secondary"
+          onClick={() => document.getElementById('cp-documents-heading')?.focus()}>
+          Voir les documents demandés
+        </button>
       )}
       {processing && <p className="cp-progress-note">Vos coordonnées et pièces sont validées. L’équipe prépare votre produit.</p>}
       {journey?.delivered_at && <p className="cp-progress-note">Livraison confirmée le {portalDate(journey.delivered_at)}.</p>}
@@ -371,7 +377,7 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
               <ContactForm key={data.contact.id} contact={data.contact} disabled={loading} onChanged={refresh} />
               <section className="cp-panel" aria-labelledby="cp-documents-heading">
                 <div className="cp-panel-heading">
-                  <h2 id="cp-documents-heading">Mes documents</h2>
+                  <h2 id="cp-documents-heading" tabIndex={-1}>Mes documents</h2>
                   {data.documents.length > 0 && (
                     <span className="cp-pill" aria-live="polite">
                       {approvedDocuments} sur {data.documents.length} pièces validées

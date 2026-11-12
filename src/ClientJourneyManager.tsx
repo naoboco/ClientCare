@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import ClientHousehold from './ClientHousehold'
+import ClientJourneyAnalysis, { type DocumentStatus } from './ClientJourneyAnalysis'
 import { db } from './lib/olimline'
 import {
   clientPortalPath, documentStatuses, downloadPortalDocument, journeyStages, loadClientJourneys,
@@ -11,6 +12,7 @@ type JourneyData = {
   journey: ClientJourney | undefined
   documents: PortalDocument[]
   contactConfirmed: boolean
+  accountLinked: boolean
   holderName: string
 }
 
@@ -22,7 +24,7 @@ const portabilityDocumentExamples = [
 async function loadJourney(clientId: string, signal: AbortSignal): Promise<JourneyData> {
   const [journeys, contact] = await Promise.all([
     loadClientJourneys(clientId, signal),
-    db().from('wo_clients').select('full_name, portal_contact_confirmed_at, phone')
+    db().from('wo_clients').select('full_name, portal_contact_confirmed_at, phone, user_id')
       .eq('id', clientId).abortSignal(signal).single(),
   ])
   if (contact.error) throw contact.error
@@ -32,6 +34,7 @@ async function loadJourney(clientId: string, signal: AbortSignal): Promise<Journ
     journey,
     documents,
     contactConfirmed: Boolean(contact.data.portal_contact_confirmed_at && contact.data.phone.trim()),
+    accountLinked: Boolean(contact.data.user_id),
     holderName: contact.data.full_name,
   }
 }
@@ -100,6 +103,7 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [revision, setRevision] = useState(0)
+  const [documentFilter, setDocumentFilter] = useState<DocumentStatus | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -173,7 +177,7 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
     setError('')
     try {
       await navigator.clipboard.writeText(url.href)
-      setNotice('Lien de l’espace client copié. Le client se connecte avec l’adresse e-mail de sa fiche.')
+      setNotice('Lien copié. Le client utilise l’adresse e-mail de sa fiche pour créer son compte ou se connecter.')
     } catch {
       setError('Ouvrez le lien de l’espace client pour copier son adresse.')
     }
@@ -183,6 +187,7 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
   const collecting = journey?.stage === 'collecting'
   const disabled = busy || loading || archived
   const ready = Boolean(data?.contactConfirmed && data.documents.every(document => document.status === 'approved'))
+  const documents = data?.documents.filter(document => !documentFilter || document.status === documentFilter) ?? []
 
   return (
     <section className="cp-staff cp-staff-panel" aria-label="Suivi dans l’espace client" aria-busy={loading || busy}>
@@ -191,6 +196,13 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
         <button type="button" className="cp-button cp-button-secondary" disabled={loading || busy}
           onClick={refresh}>Actualiser le suivi</button>
       </div>
+      {!archived && data && (
+        <div className="cp-document">
+          <strong>{data.accountLinked ? 'Compte client lié' : 'Compte client à activer'}</strong>
+          <p>{data.accountLinked ? 'Le client se connecte avec l’adresse e-mail de sa fiche.'
+            : 'Transmettez le lien au client pour qu’il crée et confirme son compte avec l’adresse e-mail de sa fiche.'}</p>
+        </div>
+      )}
       <div className="cp-actions">
         <button type="button" className="cp-button cp-button-secondary" onClick={() => void copyLink()}>
           Copier le lien client
@@ -225,17 +237,26 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
               <button className="cp-button" type="submit" disabled={disabled}>Ouvrir le suivi</button>
             </form>
           )}
-          {journey && data.documents.length > 0 && (
-            <ul className="cp-document-list">
-              {data.documents.map(document => (
-                <ReviewDocument key={document.storage_path} document={document}
-                  disabled={loading || busy} canReview={collecting && !archived}
-                  onReview={(approved, note) => void change('wo_portal_review_document', {
-                    p_document_id: document.id, p_storage_path: document.storage_path,
-                    p_approved: approved, p_note: note,
-                  }, approved ? 'Pièce validée.' : 'Le client peut déposer une pièce de remplacement.')} />
-              ))}
-            </ul>
+          {journey && (
+            <>
+              <ClientJourneyAnalysis key={journey.id + ':' + revision} clientId={clientId} journey={journey}
+                documents={data.documents} contactConfirmed={data.contactConfirmed} disabled={disabled}
+                filter={documentFilter} onFilter={setDocumentFilter} />
+              <div id="cp-staff-documents" aria-label="Liste des pièces du dossier">
+                {documents.length ? (
+                  <ul className="cp-document-list">
+                    {documents.map(document => (
+                      <ReviewDocument key={document.storage_path} document={document}
+                        disabled={loading || busy} canReview={collecting && !archived}
+                        onReview={(approved, note) => void change('wo_portal_review_document', {
+                          p_document_id: document.id, p_storage_path: document.storage_path,
+                          p_approved: approved, p_note: note,
+                        }, approved ? 'Pièce validée.' : 'Le client peut déposer une pièce de remplacement.')} />
+                    ))}
+                  </ul>
+                ) : <p className="cp-hint">{documentFilter ? 'Aucune pièce à ce statut.' : 'Aucune pièce demandée.'}</p>}
+              </div>
+            </>
           )}
           {journey && collecting && !archived && (
             <>

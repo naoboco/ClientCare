@@ -27,13 +27,14 @@
 }
 
 .wo-subscription-heading p,
-.wo-subscription-heading > span,
-.wo-subscription-demo {
+.wo-subscription-heading > span {
   color: #516c74;
 }
 
-.wo-subscription-demo {
-  margin: 0;
+.wo-subscription-notes {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .wo-subscription-panel {

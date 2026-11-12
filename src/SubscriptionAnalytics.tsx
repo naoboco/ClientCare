@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
 import {
-  assessSubscription, demoClients, demoPlans, demoSubscriptions, formatPrice, recommendPlan,
+  assessSubscription, formatPrice, recommendPlan,
   subscriptionStatuses, type Plan, type Subscription, type SubscriptionClient, type SubscriptionStatus,
 } from './lib/subscriptions'
 import './SubscriptionAnalytics.css'
@@ -17,11 +17,10 @@ function optionalNumber(value: string) {
   return value === '' ? null : Number(value)
 }
 
-function SubscriptionForm({ client, value, plans, demo, onSave, onClose }: {
+function SubscriptionForm({ client, value, plans, onSave, onClose }: {
   client: SubscriptionClient
   value: Subscription | undefined
   plans: Plan[]
-  demo: boolean
   onSave: (subscription: Subscription) => Promise<void>
   onClose: () => void
 }) {
@@ -58,7 +57,7 @@ function SubscriptionForm({ client, value, plans, demo, onSave, onClose }: {
     setError('')
     try {
       await onSave(record)
-      setMessage(demo ? 'L’exemple a été mis à jour.' : 'Le forfait et les besoins ont été enregistrés.')
+      setMessage('Le forfait et les besoins ont été enregistrés.')
     } catch {
       setError('Impossible d’enregistrer le forfait. Actualisez la page et réessayez.')
     } finally {
@@ -73,6 +72,7 @@ function SubscriptionForm({ client, value, plans, demo, onSave, onClose }: {
         <h2 id="wo-subscription-editor">{client.full_name}</h2>
         <button className="wo-button wo-quiet" type="button" disabled={busy} onClick={onClose}>Fermer</button>
       </div>
+      {client.needs.trim() && <p className="wo-subscription-notes"><strong>Notes du dossier</strong> {client.needs}</p>}
       <div className="wo-subscription-fields">
         <label>Internet nécessaire (Go / mois)
           <input type="number" min="0" max="2147483647" step="1" value={draft.data} disabled={busy}
@@ -107,7 +107,7 @@ function SubscriptionForm({ client, value, plans, demo, onSave, onClose }: {
         )}
         <button type="submit" className="wo-button wo-primary" disabled={busy ||
           Boolean(draft.plan && !activePlans.some(plan => plan.id === draft.plan))}>
-          {busy ? 'Enregistrement…' : demo ? 'Mettre à jour l’exemple' : 'Enregistrer le forfait'}
+          {busy ? 'Enregistrement…' : 'Enregistrer le forfait'}
         </button>
       </div>
       {message && <p className="wo-success" role="status">{message}</p>}
@@ -122,14 +122,11 @@ export default function SubscriptionAnalytics({ clients, plans, organizationId, 
   organizationId: string
   initialClientId?: string
 }) {
-  const [mode, setMode] = useState<'portfolio' | 'demo'>('portfolio')
   const [filter, setFilter] = useState<Filter>('all')
   const [selectedId, setSelectedId] = useState(initialClientId)
-  const [examples, setExamples] = useState(demoSubscriptions)
   const [attempt, setAttempt] = useState(0)
   const [loaded, setLoaded] = useState<{ attempt: number; data: Portfolio }>()
   const portfolio = loaded?.attempt === attempt ? loaded.data : undefined
-  const demo = mode === 'demo' || portfolio?.status === 'unavailable'
 
   useEffect(() => {
     const controller = new AbortController()
@@ -154,15 +151,14 @@ export default function SubscriptionAnalytics({ clients, plans, organizationId, 
     return () => controller.abort()
   }, [organizationId, attempt])
 
-  const currentPlans = demo ? demoPlans : plans
-  const assignments = demo ? examples : portfolio?.status === 'ready' ? portfolio.subscriptions : []
+  const assignments = portfolio?.status === 'ready' ? portfolio.subscriptions : []
   const byClient = new Map(assignments.map(row => [row.client_id, row]))
-  const byPlan = new Map(currentPlans.map(plan => [plan.id, plan]))
-  const rows = (demo ? demoClients : clients).map(client => {
+  const byPlan = new Map(plans.map(plan => [plan.id, plan]))
+  const rows = clients.map(client => {
     const assignment = byClient.get(client.id)
     const plan = assignment?.plan_id ? byPlan.get(assignment.plan_id) : undefined
     const assessment = assessSubscription(assignment, plan)
-    const recommended = assignment && assessment.status !== 'fit' ? recommendPlan(currentPlans, assignment) : undefined
+    const recommended = assignment && assessment.status !== 'fit' ? recommendPlan(plans, assignment) : undefined
     return { client, assignment, plan, recommended, ...assessment }
   })
   const counts = { fit: 0, review: 0, incomplete: 0 }
@@ -170,17 +166,7 @@ export default function SubscriptionAnalytics({ clients, plans, organizationId, 
   const selected = rows.find(row => row.client.id === selectedId)
   const visible = rows.filter(row => filter === 'all' || row.status === filter)
 
-  function changeMode(next: 'portfolio' | 'demo') {
-    setMode(next)
-    setFilter('all')
-    setSelectedId(undefined)
-  }
-
   async function save(subscription: Subscription) {
-    if (demo) {
-      setExamples(current => current.map(row => row.client_id === subscription.client_id ? subscription : row))
-      return
-    }
     const { error } = await db().rpc('wo_save_client_subscription', {
       p_client_id: subscription.client_id,
       p_plan_id: subscription.plan_id,
@@ -209,27 +195,19 @@ export default function SubscriptionAnalytics({ clients, plans, organizationId, 
           <h1 id="wo-subscription-title">Analyse des forfaits</h1>
           <p>Comparez les forfaits attribués aux besoins renseignés dans chaque dossier.</p>
         </div>
-        <div className="wo-form-actions" role="group" aria-label="Jeu de données">
-          <button type="button" className="wo-button wo-quiet" aria-pressed={!demo}
-            disabled={portfolio?.status === 'unavailable'} onClick={() => changeMode('portfolio')}>Portefeuille</button>
-          <button type="button" className="wo-button wo-quiet" aria-pressed={demo}
-            onClick={() => changeMode('demo')}>Exemple Olimline</button>
-        </div>
       </div>
 
-      {demo && <p className="wo-subscription-demo">Données de démonstration</p>}
-      {portfolio?.status === 'unavailable' && (
-        <p className="wo-subscription-demo">Appliquez la migration 22 dans Supabase pour activer les attributions dans le portefeuille.</p>
-      )}
-      {!demo && !portfolio && <p role="status">Chargement des forfaits attribués…</p>}
-      {!demo && portfolio?.status === 'error' && (
+      {!portfolio && <p role="status">Chargement des forfaits attribués…</p>}
+      {portfolio && portfolio.status !== 'ready' && (
         <div className="wo-alert" role="alert">
-          Impossible de charger les forfaits attribués.
+          {portfolio.status === 'unavailable'
+            ? 'Les attributions de forfaits sont indisponibles. L’administration peut vérifier la migration 22.'
+            : 'Impossible de charger les forfaits attribués.'}
           <button type="button" className="wo-button wo-quiet" onClick={() => setAttempt(current => current + 1)}>Réessayer</button>
         </div>
       )}
 
-      {(demo || portfolio?.status === 'ready') && (
+      {portfolio?.status === 'ready' && (
         <>
           <section className="wo-subscription-panel" aria-labelledby="wo-fit-chart">
             <div className="wo-subscription-heading">
@@ -277,8 +255,8 @@ export default function SubscriptionAnalytics({ clients, plans, organizationId, 
             ) : <p>Aucun dossier dans ce résultat.</p>}
           </section>
           {selected && (
-            <SubscriptionForm key={(demo ? 'demo-' : '') + selected.client.id} client={selected.client}
-              value={selected.assignment} plans={currentPlans} demo={demo} onSave={save}
+            <SubscriptionForm key={selected.client.id} client={selected.client}
+              value={selected.assignment} plans={plans} onSave={save}
               onClose={() => setSelectedId(undefined)} />
           )}
         </>

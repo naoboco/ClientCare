@@ -61,6 +61,9 @@ export default function Login({
         setErrorMessage('Confirmez votre adresse email avant de vous connecter.')
       } else if (isAuthError(error) && error.code === 'weak_password') {
         setErrorMessage('Choisissez un mot de passe plus robuste.')
+      } else if (registering && isAuthError(error) &&
+        ['email_address_not_authorized', 'over_email_send_rate_limit'].includes(error.code ?? '')) {
+        setErrorMessage('Le message d’activation n’a pas pu être envoyé. Réessayez plus tard ou contactez Olimline.')
       } else {
         setErrorMessage('Connexion impossible pour le moment. Réessayez.')
       }

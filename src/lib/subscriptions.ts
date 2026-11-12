@@ -16,7 +16,7 @@ export type Subscription = {
   monthly_budget: number | string | null
 }
 
-export type SubscriptionClient = { id: string; full_name: string }
+export type SubscriptionClient = { id: string; full_name: string; needs: string }
 
 export const subscriptionStatuses = {
   fit: 'Adaptés',
@@ -77,26 +77,3 @@ export function assessSubscription(
     ? { status: 'review', reasons }
     : { status: 'fit', reasons: ['Le forfait couvre les besoins renseignés.'] }
 }
-
-export const demoPlans: Plan[] = [
-  { id: 'essentiel', name: 'Essentiel', price: 39, data_gb: 50, national_minutes: 500, international_minutes: 30, active: true },
-  { id: 'plus', name: 'Plus', price: 59, data_gb: 150, national_minutes: 1500, international_minutes: 120, active: true },
-  { id: 'monde', name: 'Monde', price: 89, data_gb: 300, national_minutes: 3000, international_minutes: 300, active: true },
-]
-
-const examples = [
-  { name: 'Alice Démo', plan: 'essentiel', data: 35, calls: 20, budget: 45 },
-  { name: 'Camille Démo', plan: 'plus', data: 110, calls: 75, budget: 65 },
-  { name: 'Éden Démo', plan: 'monde', data: 210, calls: 180, budget: 95 },
-  { name: 'Lina Démo', plan: 'essentiel', data: 110, calls: 20, budget: 70 },
-  { name: 'Noa Démo', plan: 'monde', data: 45, calls: 25, budget: 50 },
-]
-
-export const demoClients = examples.map(({ name }) => ({ id: name, full_name: name }))
-export const demoSubscriptions = examples.map(({ name, plan, data, calls, budget }): Subscription => ({
-  client_id: name,
-  plan_id: plan,
-  required_data_gb: data,
-  required_france_minutes: calls,
-  monthly_budget: budget,
-}))
