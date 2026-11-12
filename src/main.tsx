@@ -7,13 +7,15 @@ import Olimline from './Olimline.tsx'
 import Login from './Login.tsx'
 import Dashboard from './Dashboard.tsx'
 import { supabase } from './lib/olimline'
-import { loadProfile, signOut, type Profile } from './lib/auth'
+import { loadProfile, signOut, type Profile, type Role } from './lib/auth'
+import { clientPortalPath } from './lib/clientPortal'
 import PasswordReset from './PasswordReset.tsx'
 import StaffInvitation from './StaffInvitation.tsx'
 import TeamAccess from './TeamAccess.tsx'
-import { crmQuestionnairePath, staffInvitePath, staffLoginPaths, teamAccessPath, type StaffRole } from './lib/staffAccess'
+import { crmQuestionnairePath, staffInvitePath, staffLoginPaths, teamAccessPath } from './lib/staffAccess'
 
 const CrmQuestionnaire = lazy(() => import('./CrmQuestionnaire.tsx'))
+const ClientPortal = lazy(() => import('./ClientPortal.tsx'))
 
 type Identity = { userId: string | null; email: string | null }
 type AccountResult = {
@@ -30,7 +32,7 @@ const roleNames = {
 
 function Account({ hash, requiredRole, inviteToken }: {
   hash: string
-  requiredRole?: StaffRole
+  requiredRole?: Role
   inviteToken: string | null
 }) {
   const [identity, setIdentity] = useState<Identity | null>(null)
@@ -42,7 +44,10 @@ function Account({ hash, requiredRole, inviteToken }: {
     if (!supabase) return
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIdentity({ userId: session?.user.id ?? null, email: session?.user.email ?? null })
+      const userId = session?.user.id ?? null
+      const email = session?.user.email ?? null
+      setIdentity(current => current?.userId === userId && current.email === email
+        ? current : { userId, email })
       setLogoutError('')
     })
 
@@ -77,7 +82,8 @@ function Account({ hash, requiredRole, inviteToken }: {
 
     try {
       await signOut()
-      if (requiredRole) window.location.hash = staffLoginPaths[requiredRole]
+      if (requiredRole === 'client' || result?.profile?.role === 'client') window.location.hash = clientPortalPath
+      else if (requiredRole) window.location.hash = staffLoginPaths[requiredRole]
       else if (inviteToken === null) window.location.hash = '#/olimline/connexion'
     } catch {
       setLogoutError('La déconnexion a échoué. Réessayez.')
@@ -111,8 +117,12 @@ function Account({ hash, requiredRole, inviteToken }: {
   if (!identity.userId) {
     return (
       <Login
-        title={requiredRole === 'admin' ? 'Connexion administrateur'
+        key={requiredRole ?? 'olimline'}
+        title={requiredRole === 'client' ? 'Espace client Olimline'
+          : requiredRole === 'admin' ? 'Connexion administrateur'
           : requiredRole === 'coordinator' ? 'Connexion coordinateur' : undefined}
+        description={requiredRole === 'client' ? 'Connectez-vous avec l’adresse e-mail de votre dossier.' : undefined}
+        registration={requiredRole === 'client' ? 'client' : undefined}
         onConnected={() => {
           if (!requiredRole) window.location.hash = '#/olimline/espace'
         }}
@@ -148,6 +158,14 @@ function Account({ hash, requiredRole, inviteToken }: {
     )
   }
 
+  if (profile?.role === 'client') {
+    return (
+      <Suspense fallback={<p className="olimline-account" role="status">Ouverture de votre dossier…</p>}>
+        <ClientPortal key={profile.id} onLogout={handleLogout} logoutBusy={busy} logoutError={logoutError} />
+      </Suspense>
+    )
+  }
+
   return profile ? (
     <Dashboard
       key={profile.id}
@@ -176,12 +194,13 @@ function subscribeToHash(onChange: () => void) {
   return () => window.removeEventListener('hashchange', onChange)
 }
 
-function Website() {
+export function Website() {
   const hash = useSyncExternalStore(subscribeToHash, () => window.location.hash)
   const isOlimline = hash === '#/olimline' || hash.startsWith('#/olimline/')
   const inviteToken = hash.startsWith(staffInvitePath) ? hash.slice(staffInvitePath.length) : null
-  const requiredRole = hash === staffLoginPaths.coordinator ? 'coordinator'
-    : hash === staffLoginPaths.admin || hash === teamAccessPath || hash === crmQuestionnairePath ? 'admin' : undefined
+  const requiredRole: Role | undefined = hash === clientPortalPath ? 'client'
+    : hash === staffLoginPaths.coordinator ? 'coordinator'
+      : hash === staffLoginPaths.admin || hash === teamAccessPath || hash === crmQuestionnairePath ? 'admin' : undefined
   const isAccount = hash === '#/olimline/connexion' || hash === '#/olimline/espace'
     || requiredRole !== undefined || inviteToken !== null
   const resetMode = hash === '#/olimline/mot-de-passe'
@@ -190,14 +209,20 @@ function Website() {
   const isAuthPage = isAccount || resetMode !== null
 
   useEffect(() => {
-    const flow = new URLSearchParams(window.location.search).get('olimline_auth')
+    const url = new URL(window.location.href)
+    const flow = url.searchParams.get('olimline_auth')
     if (flow === 'recovery') {
       window.location.hash = '#/olimline/nouveau-mot-de-passe'
+    } else if (flow === 'client') {
+      url.searchParams.delete('olimline_auth')
+      window.history.replaceState(null, '', url.href)
+      window.location.hash = clientPortalPath
     }
   }, [])
 
   useEffect(() => {
-    document.title = isAuthPage
+    document.title = hash === clientPortalPath ? 'Espace client Olimline'
+      : isAuthPage
       ? 'Mon espace Olimline'
       : isOlimline
         ? 'Olimline — Les liens qui comptent'

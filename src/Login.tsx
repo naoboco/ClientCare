@@ -7,14 +7,14 @@ type LoginProps = {
   onConnected?: () => void
   title?: string
   description?: string
-  allowRegistration?: boolean
+  registration?: 'client' | 'staff'
 }
 
 export default function Login({
   onConnected,
   title = 'Connexion Olimline',
   description = 'Retrouvez votre espace personnel.',
-  allowRegistration = false,
+  registration,
 }: LoginProps) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,17 +31,23 @@ export default function Login({
     setErrorMessage('')
 
     try {
-      if (allowRegistration && registering) {
-        const { error } = await db().auth.signUp({
+      if (registration && registering) {
+        const redirect = new URL(import.meta.env.BASE_URL, window.location.origin)
+        if (registration === 'client') redirect.searchParams.set('olimline_auth', 'client')
+        const { data, error } = await db().auth.signUp({
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: window.location.origin,
-            data: { full_name: fullName.trim(), watchover_access: 'staff_invite' },
+            emailRedirectTo: redirect.href,
+            data: {
+              full_name: fullName.trim(),
+              ...(registration === 'staff' ? { watchover_access: 'staff_invite' } : {}),
+            },
           },
         })
         if (error) throw error
-        setRegistrationSent(true)
+        if (data.session) onConnected?.()
+        else setRegistrationSent(true)
         setRegistering(false)
       } else {
         await signIn(email, password)
@@ -66,7 +72,7 @@ export default function Login({
   return (
     <main className="olimline-login">
       <a href="#/olimline">← Retour à Olimline</a>
-      <h1>{registering ? 'Créer votre compte d’équipe' : title}</h1>
+      <h1>{registering ? registration === 'client' ? 'Créer mon compte client' : 'Créer votre compte d’équipe' : title}</h1>
       <p>{description}</p>
       {registrationSent && (
         <p role="status">Vérifiez votre boîte e-mail pour confirmer votre adresse, puis revenez sur ce lien pour vous connecter.</p>
@@ -101,14 +107,15 @@ export default function Login({
           {busy ? 'Veuillez patienter…' : registering ? 'Créer le compte' : 'Se connecter'}
         </button>
       </form>
-      {allowRegistration && (
+      {registration && (
         <p>
           <button type="button" disabled={busy} onClick={() => {
             setRegistering(value => !value)
             setErrorMessage('')
             setPassword('')
           }}>
-            {registering ? 'J’ai déjà un compte' : 'Créer un compte pour accepter l’invitation'}
+            {registering ? 'J’ai déjà un compte'
+              : registration === 'client' ? 'Créer mon compte client' : 'Créer un compte pour accepter l’invitation'}
           </button>
         </p>
       )}

@@ -6,6 +6,8 @@ import EmailAnalysis from './EmailAnalysis.tsx'
 import './Dashboard.css'
 
 const WorkspaceSettings = lazy(() => import('./WorkspaceSettings.tsx'))
+const ClientJourneyManager = lazy(() => import('./ClientJourneyManager.tsx'))
+const ClientRequestsInbox = lazy(() => import('./ClientRequestsInbox.tsx'))
 
 type Client = {
   id: string
@@ -46,7 +48,7 @@ type Props = {
 }
 
 const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at, archived_at'
-const tabLabels = { clients: 'Relation client', plans: 'Catalogue', settings: 'Configuration' }
+const tabLabels = { clients: 'Relation client', requests: 'Demandes clients', plans: 'Catalogue', settings: 'Configuration' }
 
 function messageOf(error: unknown) {
   return error && typeof error === 'object' && 'message' in error
@@ -185,6 +187,8 @@ export default function Dashboard({
 
   const [tab, setTab] = useState<keyof typeof tabLabels>('clients')
   const configuring = tab === 'settings'
+  const viewingRequests = tab === 'requests'
+  const showPortfolio = !configuring && !viewingRequests
   const [clients, setClients] = useState<Client[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
@@ -326,6 +330,23 @@ export default function Dashboard({
       .sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr')))
   }
 
+  async function openRequestClient(clientId: string) {
+    if (!mayLeave()) return
+    const { data, error } = await db().from('wo_clients').select(fields)
+      .eq('id', clientId).eq('organization_id', profile.organization_id).maybeSingle()
+    if (error || !data) throw new Error('Ce dossier n’est plus accessible.')
+
+    const client = data as Client
+    storeClient(client)
+    setSelected(client)
+    setSearch('')
+    setFilter(client.archived_at ? 'archived' : 'all')
+    setSaved(false)
+    setSaveError('')
+    setNotice('')
+    setTab('clients')
+  }
+
   function onCreated(client: Client) {
     storeClient(client)
     setCreating(false)
@@ -397,7 +418,7 @@ export default function Dashboard({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selected || !editable || saving || !dirty) return
+    if (!selected || !original || !editable || saving || !dirty) return
 
     const row = {
       ...selected,
@@ -416,14 +437,14 @@ export default function Dashboard({
     setSaveError('')
 
     try {
-      const patch = {
-        full_name: row.full_name,
-        phone: row.phone,
-        needs: row.needs,
-        last_contact_at: row.last_contact_at,
-        next_followup_at: row.next_followup_at,
-        ...(admin ? { coordinator_id: row.coordinator_id } : {}),
-      }
+      // Les coordonnées peuvent aussi être mises à jour dans l’espace client.
+      const patch: Partial<Client> = {}
+      if (selected.full_name !== original.full_name) patch.full_name = row.full_name
+      if (selected.phone !== original.phone) patch.phone = row.phone
+      if (selected.needs !== original.needs) patch.needs = row.needs
+      if (row.last_contact_at !== original.last_contact_at) patch.last_contact_at = row.last_contact_at
+      if (row.next_followup_at !== original.next_followup_at) patch.next_followup_at = row.next_followup_at
+      if (admin && row.coordinator_id !== original.coordinator_id) patch.coordinator_id = row.coordinator_id
 
       const { data, error } = await db().from('wo_clients')
         .update(patch)
@@ -521,6 +542,14 @@ export default function Dashboard({
             {editable ? 'Portefeuille clients' : 'Mon dossier'}
           </button>
 
+          {editable && (
+            <button type="button" className={viewingRequests ? 'active' : ''}
+              aria-current={viewingRequests ? 'page' : undefined} onClick={() => setTab('requests')}>
+              <span aria-hidden="true">▣</span>
+              Demandes clients
+            </button>
+          )}
+
           <button
             type="button"
             className={tab === 'plans' ? 'active' : ''}
@@ -590,7 +619,13 @@ export default function Dashboard({
             </Suspense>
           )}
 
-          <section className="wo-welcome" hidden={configuring}>
+          {editable && viewingRequests && (
+            <Suspense fallback={<p role="status">Ouverture des demandes…</p>}>
+              <ClientRequestsInbox onOpenClient={openRequestClient} />
+            </Suspense>
+          )}
+
+          <section className="wo-welcome" hidden={!showPortfolio}>
             <div>
               <p className="wo-eyebrow">VOTRE ENTREPRISE. VOTRE MANIÈRE.</p>
               <h1>
@@ -609,7 +644,7 @@ export default function Dashboard({
             <span className="wo-welcome-mark" aria-hidden="true">O.</span>
           </section>
 
-          <div className="wo-metrics" hidden={configuring}>
+          <div className="wo-metrics" hidden={!showPortfolio}>
             {metrics.map(([label, value]) => (
               <article key={String(label)}>
                 <span>{label}</span>
@@ -618,7 +653,7 @@ export default function Dashboard({
             ))}
           </div>
 
-          <div className="wo-section-heading" hidden={configuring}>
+          <div className="wo-section-heading" hidden={!showPortfolio}>
             <div>
               <p className="wo-eyebrow">
                 {tab === 'clients' ? 'RELATION CLIENT' : 'OFFRES OLIMLINE'}
@@ -653,13 +688,13 @@ export default function Dashboard({
             </div>
           </div>
 
-          {!configuring && loading && (
+          {showPortfolio && loading && (
             <div className="wo-empty" role="status">
               Chargement de votre espace…
             </div>
           )}
 
-          {!configuring && loadError && (
+          {showPortfolio && loadError && (
             <p className="wo-alert" role="alert">
               Impossible de charger les données : {loadError}.
               Utilisez « Actualiser » pour réessayer.
@@ -964,6 +999,12 @@ export default function Dashboard({
                       {dirty && <small>Modifications non enregistrées</small>}
                     </div>
                   </form>
+                  {editable && (
+                    <Suspense fallback={<p role="status">Ouverture du suivi produit…</p>}>
+                      <ClientJourneyManager key={selected.id + (selected.archived_at ?? '')}
+                        clientId={selected.id} archived={Boolean(selected.archived_at)} />
+                    </Suspense>
+                  )}
                   {editable && (
                     <EmailAnalysis key={selected.id} clientId={selected.id}
                       clientEmail={selected.email} disabled={saving} />

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { clientPortalPath } from './lib/clientPortal'
 import './Olimline.css'
 
 const plans = [
@@ -34,7 +35,7 @@ export default function Olimline() {
           <a href="#/olimline/parcours">Comment ça marche</a>
           <a href="#/olimline/questions">Vos questions</a>
         </nav>
-          <a className="ol-button ol-button-small" href="#/olimline/connexion"> Se connecter </a>
+        <a className="ol-button ol-button-small" href={clientPortalPath}>Espace client</a>
       </header>
 
       <main>
