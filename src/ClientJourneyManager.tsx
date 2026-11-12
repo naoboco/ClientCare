@@ -159,7 +159,7 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
   function addDocument(journeyId: string, label: string) {
     return change('wo_portal_add_document', {
       p_journey_id: journeyId, p_label: label,
-    }, 'La liste des pièces est à jour dans l’espace client.')
+    }, 'Pièce demandée. Le client peut la retrouver dans « Mes documents ».')
   }
 
   async function requireDocument(event: FormEvent<HTMLFormElement>, journeyId: string) {
@@ -228,7 +228,7 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
               )}
             </div>
           )}
-          {!journey && <p className="cp-hint">Aucun suivi produit ouvert.</p>}
+          {!journey && <p className="cp-hint">Ouvrez le suivi du produit pour afficher les étapes et demander des pièces au client.</p>}
           {!archived && (!journey || journey.stage === 'delivered') && (
             <form className="cp-form cp-inline-form" onSubmit={start}>
               <label>Produit à livrer

@@ -44,11 +44,25 @@ async function loadPortal(signal: AbortSignal): Promise<PortalData | null> {
 function Progress({ journey, contact, documents }: Pick<PortalData, 'journey' | 'contact' | 'documents'>) {
   const delivered = journey?.stage === 'delivered'
   const processing = journey?.stage === 'processing'
+  const collecting = journey?.stage === 'collecting'
   const needsDocument = documents.filter(document => document.status === 'missing' || document.status === 'rejected')
   const pendingReview = documents.filter(document => document.status === 'submitted').length
-  const documentsReady = Boolean(journey) && documents.every(document => document.status === 'approved')
+  const documentsReady = needsDocument.length === 0 && pendingReview === 0
   const completed = delivered ? 4 : processing ? 2 : contact.contact_confirmed ? (documentsReady ? 2 : 1) : 0
   const steps = ['Coordonnées', 'Documents', 'Traitement', 'Livraison']
+  let status = journey ? journeyStages[journey.stage] : 'Suivi à ouvrir'
+  let tone = journey?.stage
+  if (collecting) {
+    if (needsDocument.length > 0) status = 'Pièces à déposer'
+    else if (!contact.contact_confirmed) status = 'Coordonnées à confirmer'
+    else if (pendingReview > 0) {
+      status = 'Pièces en vérification'
+      tone = 'processing'
+    } else {
+      status = 'En attente de traitement'
+      tone = 'processing'
+    }
+  }
 
   return (
     <section className="cp-panel cp-progress" aria-labelledby="cp-progress-heading">
@@ -57,36 +71,42 @@ function Progress({ journey, contact, documents }: Pick<PortalData, 'journey' | 
           <h2 id="cp-progress-heading">Suivi du dossier</h2>
           {journey && <p>{journey.product_name}</p>}
         </div>
-        {journey && <span className="cp-pill" data-status={journey.stage}>{journeyStages[journey.stage]}</span>}
+        <span className="cp-pill" data-status={tone} role="status">{status}</span>
       </div>
 
-      <ol className="cp-steps" aria-label="Étapes du dossier">
-        {steps.map((step, index) => (
-          <li key={step} data-state={index < completed ? 'complete' : index === completed ? 'current' : 'pending'}
-            aria-current={index === completed ? 'step' : undefined}>
-            <span className="cp-step-marker" aria-hidden="true">{index < completed ? '✓' : index + 1}</span>
-            <span>{step}{index < completed && <span className="cp-sr-only">, terminé</span>}</span>
-          </li>
-        ))}
-      </ol>
+      {journey ? (
+        <ol className="cp-steps" aria-label="Étapes du dossier">
+          {steps.map((step, index) => (
+            <li key={step} data-state={index < completed ? 'complete' : index === completed ? 'current' : 'pending'}
+              aria-current={index === completed ? 'step' : undefined}>
+              <span className="cp-step-marker" aria-hidden="true">{index < completed ? '✓' : index + 1}</span>
+              <span>{step}{index < completed && <span className="cp-sr-only">, terminé</span>}</span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="cp-progress-note cp-progress-waiting">
+          Votre fiche est liée à votre compte. L’équipe doit ouvrir le suivi de votre produit.
+          Les pièces demandées s’afficheront dans « Mes documents ».
+        </p>
+      )}
 
-      {!journey && <p className="cp-progress-note">Le produit et les pièces à fournir apparaîtront ici dès que l’équipe ouvrira votre suivi.</p>}
-      {journey?.stage === 'collecting' && (
+      {collecting && (
         <p className="cp-progress-note" role="status">
-          {!contact.contact_confirmed && <>Confirmez vos coordonnées. </>}
           {needsDocument.length > 0 && (
             <>{needsDocument.length} {needsDocument.length === 1 ? 'pièce est à fournir ou à remplacer.' : 'pièces sont à fournir ou à remplacer.'} </>
           )}
+          {!contact.contact_confirmed && <>Confirmez vos coordonnées. </>}
           {pendingReview > 0 && (
             <>{pendingReview} {pendingReview === 1 ? 'pièce est en cours de vérification.' : 'pièces sont en cours de vérification.'} </>
           )}
           {contact.contact_confirmed && documentsReady && <>Votre dossier attend sa mise en traitement par l’équipe.</>}
         </p>
       )}
-      {journey?.stage === 'collecting' && needsDocument.length > 0 && (
-        <button type="button" className="cp-button cp-button-secondary"
+      {collecting && needsDocument.length > 0 && (
+        <button type="button" className="cp-button cp-progress-action"
           onClick={() => document.getElementById('cp-documents-heading')?.focus()}>
-          Voir les documents demandés
+          Déposer les pièces demandées
         </button>
       )}
       {processing && <p className="cp-progress-note">Vos coordonnées et pièces sont validées. L’équipe prépare votre produit.</p>}
@@ -354,7 +374,8 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
         {!data && !loading && !error && (
           <section className="cp-panel">
             <h1>Mon dossier Olimline</h1>
-            <p>Votre dossier n’est pas accessible avec ce compte. Vérifiez l’adresse e-mail utilisée pour votre dossier ou contactez Olimline.</p>
+            <p>Pour accéder au suivi et aux documents, utilisez l’adresse e-mail confirmée de votre fiche Olimline.
+              Votre coordinateur peut vérifier que cette fiche est liée à votre compte.</p>
           </section>
         )}
 
@@ -373,8 +394,7 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
 
             <Progress journey={data.journey} contact={data.contact} documents={data.documents} />
 
-            <div className="cp-columns">
-              <ContactForm key={data.contact.id} contact={data.contact} disabled={loading} onChanged={refresh} />
+            <div className="cp-columns cp-case-columns">
               <section className="cp-panel" aria-labelledby="cp-documents-heading">
                 <div className="cp-panel-heading">
                   <h2 id="cp-documents-heading" tabIndex={-1}>Mes documents</h2>
@@ -396,6 +416,7 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
                   </>
                 ) : <p className="cp-hint">Aucun document demandé pour le moment.</p>}
               </section>
+              <ContactForm key={data.contact.id} contact={data.contact} disabled={loading} onChanged={refresh} />
             </div>
 
             <ClientHousehold key={data.contact.id} clientId={data.contact.id} holderName={data.contact.full_name}

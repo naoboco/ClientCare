@@ -132,6 +132,8 @@
   gap: 18px;
 }
 
+.cp-case-columns { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+
 .cp-progress { border-top: 3px solid var(--cp-accent); }
 
 .cp-steps {
@@ -171,6 +173,8 @@
 
 .cp-steps li[data-state="complete"] .cp-step-marker { background: var(--cp-accent); color: #fff; }
 .cp-progress-note { margin: 0; color: var(--cp-muted); }
+.cp-progress-waiting,
+.cp-progress-action { margin-top: 12px; }
 
 .cp-form {
   display: grid;
