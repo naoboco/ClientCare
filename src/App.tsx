@@ -1,6 +1,7 @@
 
 import './App.css'
 import laptopChameleon from './assets/watchover-laptop.png'
+import { watchoverSignupPath } from './lib/watchoverAccess'
 
 // ==========================================
 // WATCHOVER — DATA
@@ -105,8 +106,8 @@ function App() {
           <a href="#styles">Styles</a>
         </nav>
 
-        <a href="#product" className="button button-primary">
-          Explore Watchover
+        <a href={watchoverSignupPath} className="button button-primary">
+          Start my CRM project
         </a>
       </header>
 
@@ -120,7 +121,7 @@ function App() {
           <div className="hero-content">
 
             <span className="eyebrow">
-              ✦ YOUR BUSINESS, REIMAGINED
+              YOUR BUSINESS, REIMAGINED
             </span>
 
             <h1>
@@ -138,10 +139,10 @@ function App() {
 
             <div className="hero-actions">
               <a
-                href="#product"
+                href={watchoverSignupPath}
                 className="button button-primary"
               >
-                Discover Watchover →
+                Start my CRM project →
               </a>
 
               <a 
@@ -153,7 +154,6 @@ function App() {
             </div>
 
             <div className="hero-note">
-              <span className="status-dot"></span>
               One platform. Infinite possibilities.
             </div>
           </div>
@@ -179,7 +179,7 @@ function App() {
                 </div>
 
                 <div className="preview-main">
-                  <h3>Good morning! 👋</h3>
+                  <h3>Good morning! </h3>
 
                   <div className="preview-stats">
                     <div>
@@ -233,7 +233,7 @@ function App() {
         >
           <div className="section-heading">
             <span className="benefits-eyebrow">
-              ✦ WHY WATCHOVER?
+              WHY WATCHOVER ?
             </span>
 
             <h2>
@@ -281,7 +281,7 @@ function App() {
           <div className="product-text">
 
             <span className="product-badge">
-              ✦ MEET WATCHOVER
+              MEET WATCHOVER
             </span>
 
             <h2>
@@ -465,10 +465,10 @@ function App() {
           </p>
 
           <a
-            href="#top"
+            href={watchoverSignupPath}
             className="button button-light"
           >
-            Explore Watchover ↑
+            Start my CRM project →
           </a>
         </section>
 
