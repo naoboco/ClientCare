@@ -89,8 +89,9 @@
 .ol-faq details { border-bottom: 1px solid #dce6d9; }
 .ol-faq summary { padding: 22px 0; cursor: pointer; font-size: 14px; font-weight: 700; line-height: 1.7; }
 .ol-faq details p { padding: 0 0 22px; color: var(--ol-muted); font-size: 13px; line-height: 1.9; }
-.ol-page .ol-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 32px 7%; border-top: 1px solid #e2e9de; }
-.ol-page .ol-footer p, .ol-page .ol-footer a:not(.ol-logo), .ol-page .ol-footer small { font-size: 11px; color: var(--ol-muted); }
+.ol-page .ol-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 32px 7%; border-top: 1px solid #e2e9de; }
+.ol-page .ol-footer p, .ol-page .ol-footer a:not(.ol-logo, .ol-button), .ol-page .ol-footer small { font-size: 11px; color: var(--ol-muted); }
+.ol-footer-access { flex-basis: 100%; display: flex; justify-content: center; }
 @media (min-width: 1500px) { .ol-hero, .ol-section { padding-left: max(9%, calc((100% - 1250px) / 2)); padding-right: max(9%, calc((100% - 1250px) / 2)); } }
 @media (max-width: 1050px) { .ol-header { padding-inline: 5%; } .ol-page .ol-nav { gap: 17px; font-size: 11px; } .ol-hero, .ol-section { padding-inline: 6%; } .ol-hero { gap: 3%; } .ol-hero h1 { letter-spacing: -2px; } .ol-plan { padding: 25px 18px; } }
 @media (max-width: 760px) { .ol-header { min-height: 75px; } .ol-page .ol-nav { display: none; } .ol-hero { grid-template-columns: 1fr; gap: 45px; padding-block: 55px 65px; } .ol-hero-copy { max-width: 540px; } .ol-hero h1 { font-size: clamp(42px, 8vw, 64px); } .ol-visual { width: min(420px, 90%); margin: auto; min-height: 510px; } .ol-plans-grid { grid-template-columns: 1fr; max-width: 450px; } .ol-section { padding-block: 60px; } .ol-steps, .ol-contact { grid-template-columns: 1fr; gap: 30px; } .ol-plan .ol-button { font-size: 13px; } .ol-plan .ol-plan-description, .ol-plan ul { font-size: 14px; } }

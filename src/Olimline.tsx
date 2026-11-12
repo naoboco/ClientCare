@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { clientPortalPath } from './lib/clientPortal'
+import { staffLoginPaths } from './lib/staffAccess'
 import './Olimline.css'
 
 const plans = [
@@ -103,7 +104,17 @@ export default function Olimline() {
         </section>
       </main>
 
-      <footer className="ol-footer"><a className="ol-logo" href="#/olimline">olim<span>line.</span></a><p>Les liens qui comptent.</p><a href="#top">Propulsé par Watchover ↗</a><small>© {new Date().getFullYear()} Olimline</small></footer>
+      <footer className="ol-footer">
+        <a className="ol-logo" href="#/olimline">olim<span>line.</span></a>
+        <p>Les liens qui comptent.</p>
+        <a href="#top">Propulsé par Watchover ↗</a>
+        <small>© {new Date().getFullYear()} Olimline</small>
+        <div className="ol-footer-access">
+          <a className="ol-button ol-button-outline ol-button-small" href={staffLoginPaths.coordinator}>
+            Espace coordinateur
+          </a>
+        </div>
+      </footer>
     </div>
   )
 }
