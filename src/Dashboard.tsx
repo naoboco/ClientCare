@@ -2,12 +2,14 @@ import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'rea
 import { db } from './lib/olimline'
 import type { Profile } from './lib/auth'
 import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
+import type { Plan } from './lib/subscriptions'
 import EmailAnalysis from './EmailAnalysis.tsx'
 import './Dashboard.css'
 
 const WorkspaceSettings = lazy(() => import('./WorkspaceSettings.tsx'))
 const ClientJourneyManager = lazy(() => import('./ClientJourneyManager.tsx'))
 const ClientRequestsInbox = lazy(() => import('./ClientRequestsInbox.tsx'))
+const SubscriptionAnalytics = lazy(() => import('./SubscriptionAnalytics.tsx'))
 
 type Client = {
   id: string
@@ -21,16 +23,6 @@ type Client = {
   last_contact_at: string | null
   next_followup_at: string | null
   archived_at: string | null
-}
-
-type Plan = {
-  id: string
-  name: string
-  price: number | string
-  data_gb: number
-  national_minutes: number
-  international_minutes: number
-  active: boolean
 }
 
 type Staff = {
@@ -48,7 +40,13 @@ type Props = {
 }
 
 const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at, archived_at'
-const tabLabels = { clients: 'Relation client', requests: 'Demandes clients', plans: 'Catalogue', settings: 'Configuration' }
+const tabLabels = {
+  clients: 'Relation client',
+  requests: 'Demandes clients',
+  plans: 'Catalogue',
+  subscriptions: 'Analyse des forfaits',
+  settings: 'Configuration',
+}
 
 function messageOf(error: unknown) {
   return error && typeof error === 'object' && 'message' in error
@@ -188,7 +186,9 @@ export default function Dashboard({
   const [tab, setTab] = useState<keyof typeof tabLabels>('clients')
   const configuring = tab === 'settings'
   const viewingRequests = tab === 'requests'
-  const showPortfolio = !configuring && !viewingRequests
+  const viewingSubscriptions = tab === 'subscriptions'
+  const showPortfolio = !configuring && !viewingRequests && !viewingSubscriptions
+  const [subscriptionClientId, setSubscriptionClientId] = useState<string>()
   const [clients, setClients] = useState<Client[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
@@ -316,6 +316,13 @@ export default function Dashboard({
     setSelected({ ...client })
     setSaved(false)
     setSaveError('')
+  }
+
+  function openSubscriptions(clientId?: string) {
+    if (!mayLeave()) return
+    if (dirty && original) setSelected({ ...original })
+    setSubscriptionClientId(clientId)
+    setTab('subscriptions')
   }
 
   function openCreation() {
@@ -560,6 +567,14 @@ export default function Dashboard({
             Catalogue des forfaits
           </button>
 
+          {editable && (
+            <button type="button" className={viewingSubscriptions ? 'active' : ''}
+              aria-current={viewingSubscriptions ? 'page' : undefined} onClick={() => openSubscriptions()}>
+              <span aria-hidden="true">▥</span>
+              Analyse des forfaits
+            </button>
+          )}
+
           {admin && (
             <button type="button" className={configuring ? 'active' : ''}
               aria-current={configuring ? 'page' : undefined} onClick={openSettings}>
@@ -623,6 +638,21 @@ export default function Dashboard({
             <Suspense fallback={<p role="status">Ouverture des demandes…</p>}>
               <ClientRequestsInbox onOpenClient={openRequestClient} />
             </Suspense>
+          )}
+
+          {editable && viewingSubscriptions && ready && (
+            <Suspense fallback={<p role="status">Ouverture de l’analyse des forfaits…</p>}>
+              <SubscriptionAnalytics clients={activeClients} plans={plans}
+                organizationId={profile.organization_id} initialClientId={subscriptionClientId} />
+            </Suspense>
+          )}
+          {viewingSubscriptions && loading && <p role="status">Chargement du portefeuille…</p>}
+          {viewingSubscriptions && loadError && (
+            <div className="wo-alert" role="alert">
+              Impossible de charger le portefeuille.
+              <button className="wo-button wo-quiet" type="button"
+                onClick={() => setRevision(value => value + 1)}>Actualiser</button>
+            </div>
           )}
 
           <section className="wo-welcome" hidden={!showPortfolio}>
@@ -994,6 +1024,11 @@ export default function Dashboard({
                           onClick={() => void changeArchive()}>
                           {selected.archived_at ? 'Restaurer la fiche' : 'Archiver la fiche'}
                         </button>
+                      )}
+
+                      {editable && !selected.archived_at && (
+                        <button type="button" className="wo-button wo-quiet" disabled={saving}
+                          onClick={() => openSubscriptions(selected.id)}>Forfait et besoins</button>
                       )}
 
                       {dirty && <small>Modifications non enregistrées</small>}

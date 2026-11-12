@@ -54,6 +54,12 @@ Le script `19` configure le bucket privé `wo-client-documents` avec un maximum 
 
 Sur une base utilisée par le site en ligne, appliquer le script `19` pour préparer les tables, les fonctions et le stockage. Tester le parcours sur le déploiement de prévisualisation. Appliquer le script `20` au moment de la bascule vers le nouveau portail, qui lit les données client via ses propres fonctions. Ce script réserve la lecture directe de la fiche CRM à l’équipe. [Bascule des droits d’accès](supabase/pas-a-pas/20-espace-client-droits.sql)
 
+### Attribuer et analyser les forfaits
+
+Appliquer la [migration 22](supabase/pas-a-pas/22-abonnements-clients.sql) après la 18. Dans une fiche active, **Forfait et besoins** permet de saisir les Go, les minutes vers la France et le budget mensuel, puis d’enregistrer le forfait attribué. Le coordinateur gère ses dossiers et l’administration gère ceux de son organisation.
+
+Dans **Analyse des forfaits**, les trois barres filtrent les dossiers adaptés, à revoir et à compléter. En cas d’écart, le système propose le forfait actif le moins cher qui couvre les besoins renseignés. **Exemple Olimline** présente cinq dossiers de démonstration, dont deux forfaits à revoir. Les modifications de l’exemple restent dans la page.
+
 ## Architecture
 
 ```mermaid
