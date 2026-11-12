@@ -25,7 +25,6 @@ type AccountResult = {
 }
 
 const roleNames = {
-  client: 'Client',
   coordinator: 'Coordinateur',
   admin: 'Administratrice',
 }
@@ -39,6 +38,10 @@ function Account({ hash, requiredRole, inviteToken }: {
   const [result, setResult] = useState<AccountResult | null>(null)
   const [logoutError, setLogoutError] = useState('')
   const [busy, setBusy] = useState(false)
+  const current = result?.identity === identity ? result : null
+  const profile = current?.profile
+  const redirectToClientPortal = profile?.role === 'client' &&
+    (hash === '#/olimline/connexion' || hash === '#/olimline/espace')
 
   useEffect(() => {
     if (!supabase) return
@@ -74,6 +77,10 @@ function Account({ hash, requiredRole, inviteToken }: {
 
     return () => { active = false }
   }, [identity, inviteToken])
+
+  useEffect(() => {
+    if (redirectToClientPortal) window.location.replace(clientPortalPath)
+  }, [redirectToClientPortal])
 
   async function handleLogout() {
     if (busy) return
@@ -130,9 +137,6 @@ function Account({ hash, requiredRole, inviteToken }: {
     )
   }
 
-  const current = result?.identity === identity ? result : null
-  const profile = current?.profile
-
   if (profile && requiredRole && profile.role !== requiredRole) {
     return (
       <main className="olimline-account">
@@ -159,6 +163,9 @@ function Account({ hash, requiredRole, inviteToken }: {
   }
 
   if (profile?.role === 'client') {
+    if (redirectToClientPortal) {
+      return <p className="olimline-account" role="status">Ouverture de votre espace client…</p>
+    }
     return (
       <Suspense fallback={<p className="olimline-account" role="status">Ouverture de votre dossier…</p>}>
         <ClientPortal key={profile.id} onLogout={handleLogout} logoutBusy={busy} logoutError={logoutError} />
@@ -166,7 +173,7 @@ function Account({ hash, requiredRole, inviteToken }: {
     )
   }
 
-  return profile ? (
+  return profile?.role === 'admin' || profile?.role === 'coordinator' ? (
     <Dashboard
       key={profile.id}
       profile={profile}

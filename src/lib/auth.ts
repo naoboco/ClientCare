@@ -2,13 +2,15 @@ import { db } from './olimline'
 
 export type Role = 'client' | 'coordinator' | 'admin'
 
-export type Profile = {
+type ProfileIdentity = {
   id: string
   organization_id: string
-  role: Role
   full_name: string
   email: string
 }
+
+export type StaffProfile = ProfileIdentity & { role: Exclude<Role, 'client'> }
+export type Profile = StaffProfile | (ProfileIdentity & { role: 'client' })
 
 export async function signIn(email: string, password: string) {
   const { data, error } = await db().auth.signInWithPassword({

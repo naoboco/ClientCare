@@ -93,7 +93,6 @@
 .wo-alert { color:#982b24; background:#fff1ef; border:1px solid #f3d2ce; }
 .wo-success { color:#166443; background:#ecf9f1; border:1px solid #cce9d8; }
 .wo-empty { padding:30px 20px; text-align:center; color:#6b7f86; }
-.wo-client-only { grid-template-columns:minmax(0,850px); }
 .wo-plan-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
 .wo-plan { min-width:0; padding:26px; border:1px solid #e0e7eb; border-radius:15px; background:white; }
 .wo-plan h3 { margin:18px 0 8px; font-size:23px; letter-spacing:-.6px; }

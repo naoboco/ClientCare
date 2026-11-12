@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
-import type { Profile } from './lib/auth'
+import type { StaffProfile } from './lib/auth'
 import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
 import type { Plan } from './lib/subscriptions'
 import EmailAnalysis from './EmailAnalysis.tsx'
@@ -32,7 +32,7 @@ type Staff = {
 }
 
 type Props = {
-  profile: Profile
+  profile: StaffProfile
   roleLabel: string
   onLogout: () => Promise<void>
   logoutBusy: boolean
@@ -181,7 +181,6 @@ export default function Dashboard({
   profile, roleLabel, onLogout, logoutBusy, logoutError,
 }: Props) {
   const admin = profile.role === 'admin'
-  const editable = profile.role !== 'client'
 
   const [tab, setTab] = useState<keyof typeof tabLabels>('clients')
   const configuring = tab === 'settings'
@@ -232,10 +231,6 @@ export default function Dashboard({
           query = query.eq('coordinator_id', profile.id)
         }
 
-        if (profile.role === 'client') {
-          query = query.eq('user_id', profile.id)
-        }
-
         const [clientResult, planResult, staffResult] = await Promise.all([
           query.order('full_name').abortSignal(controller.signal),
 
@@ -264,7 +259,7 @@ export default function Dashboard({
         setClients(rows)
         setPlans((planResult.data ?? []) as Plan[])
         setStaff((staffResult.data ?? []) as Staff[])
-        const first = profile.role === 'client' ? rows[0] : rows.find(row => !row.archived_at)
+        const first = rows.find(row => !row.archived_at)
         setSelected(first ? { ...first } : null)
         setSaved(false)
         setSaveError('')
@@ -377,7 +372,7 @@ export default function Dashboard({
   }
 
   async function changeArchive() {
-    if (!editable || !selected || !mayLeave()) return
+    if (!selected || !mayLeave()) return
     const archived = !selected.archived_at
     setSaving(true)
     setSaved(false)
@@ -425,7 +420,7 @@ export default function Dashboard({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selected || !original || !editable || saving || !dirty) return
+    if (!selected || !original || saving || !dirty) return
 
     const row = {
       ...selected,
@@ -494,7 +489,7 @@ export default function Dashboard({
   const overdueCount = activeClients.filter(client => isOverdue(client, now)).length
   const ready = !loading && !loadError
   const metrics = [
-    editable ? ['Clients actifs', activeClients.length] : ['Mon dossier', clients.length],
+    ['Clients actifs', activeClients.length],
     ['Relances en retard', overdueCount],
     [
       admin ? 'Clients à attribuer' : 'Téléphones renseignés',
@@ -546,16 +541,14 @@ export default function Dashboard({
             onClick={() => setTab('clients')}
           >
             <span aria-hidden="true">◈</span>
-            {editable ? 'Portefeuille clients' : 'Mon dossier'}
+            Portefeuille clients
           </button>
 
-          {editable && (
-            <button type="button" className={viewingRequests ? 'active' : ''}
-              aria-current={viewingRequests ? 'page' : undefined} onClick={() => setTab('requests')}>
-              <span aria-hidden="true">▣</span>
-              Demandes clients
-            </button>
-          )}
+          <button type="button" className={viewingRequests ? 'active' : ''}
+            aria-current={viewingRequests ? 'page' : undefined} onClick={() => setTab('requests')}>
+            <span aria-hidden="true">▣</span>
+            Demandes clients
+          </button>
 
           <button
             type="button"
@@ -567,13 +560,11 @@ export default function Dashboard({
             Catalogue des forfaits
           </button>
 
-          {editable && (
-            <button type="button" className={viewingSubscriptions ? 'active' : ''}
-              aria-current={viewingSubscriptions ? 'page' : undefined} onClick={() => openSubscriptions()}>
-              <span aria-hidden="true">▥</span>
-              Analyse des forfaits
-            </button>
-          )}
+          <button type="button" className={viewingSubscriptions ? 'active' : ''}
+            aria-current={viewingSubscriptions ? 'page' : undefined} onClick={() => openSubscriptions()}>
+            <span aria-hidden="true">▥</span>
+            Analyse des forfaits
+          </button>
 
           {admin && (
             <button type="button" className={configuring ? 'active' : ''}
@@ -634,13 +625,13 @@ export default function Dashboard({
             </Suspense>
           )}
 
-          {editable && viewingRequests && (
+          {viewingRequests && (
             <Suspense fallback={<p role="status">Ouverture des demandes…</p>}>
               <ClientRequestsInbox onOpenClient={openRequestClient} />
             </Suspense>
           )}
 
-          {editable && viewingSubscriptions && ready && (
+          {viewingSubscriptions && ready && (
             <Suspense fallback={<p role="status">Ouverture de l’analyse des forfaits…</p>}>
               <SubscriptionAnalytics clients={activeClients} plans={plans}
                 organizationId={profile.organization_id} initialClientId={subscriptionClientId} />
@@ -661,15 +652,9 @@ export default function Dashboard({
               <h1>
                 {tab === 'plans'
                   ? 'Le bon forfait commence ici.'
-                  : editable
-                    ? 'Chaque client compte.'
-                    : 'Bienvenue dans votre espace.'}
+                  : 'Chaque client compte.'}
               </h1>
-              <p>
-                {editable
-                  ? 'Retrouvez les informations utiles et préparez votre prochain échange.'
-                  : 'Retrouvez les informations de votre dossier et les offres Olimline.'}
-              </p>
+              <p>Retrouvez les informations utiles et préparez votre prochain échange.</p>
             </div>
             <span className="wo-welcome-mark" aria-hidden="true">O.</span>
           </section>
@@ -691,11 +676,11 @@ export default function Dashboard({
               <h2>
                 {tab === 'plans'
                   ? 'Catalogue des forfaits'
-                  : editable ? 'Votre portefeuille' : 'Mon dossier'}
+                  : 'Votre portefeuille'}
               </h2>
             </div>
             <div className="wo-form-actions">
-              {editable && ready && tab === 'clients' && (
+              {ready && tab === 'clients' && (
                 <button className="wo-button wo-primary" type="button"
                   disabled={saving} onClick={openCreation}>
                   Nouvelle fiche
@@ -762,7 +747,7 @@ export default function Dashboard({
           {ready && tab === 'clients' && <>
             {creating && <CreateClientDialog onCreated={onCreated} onClose={() => setCreating(false)} />}
             {notice && <p ref={noticeRef} className="wo-success" role="status" tabIndex={-1}>{notice}</p>}
-            {editable && !archivedView && overdueCount > 0 && (
+            {!archivedView && overdueCount > 0 && (
               <div className="wo-alert wo-followup-alert" role="status">
                 <strong>{overdueCount} relance{overdueCount > 1 ? 's' : ''} en retard.</strong>
                 <button type="button" className="wo-button wo-quiet"
@@ -771,100 +756,94 @@ export default function Dashboard({
                 </button>
               </div>
             )}
-            {editable && (
-              <div className="wo-toolbar">
-                <label className="wo-search">
-                  Rechercher un client
-                  <input
-                    type="search"
-                    placeholder="Nom, email, téléphone, besoin…"
-                    value={search}
-                    onChange={event => setSearch(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Afficher
-                  <select
-                    value={filter}
-                    onChange={event => changeFilter(event.target.value)}
-                  >
-                    <option value="all">Clients actifs</option>
-                    <option value="overdue">Relances en retard</option>
-                    <option value="needs">Besoins à préciser</option>
-                    <option value="phone">Téléphone manquant</option>
-                    {admin && <option value="unassigned">Sans responsable</option>}
-                    <option value="archived">Fiches archivées</option>
-                  </select>
-                </label>
-                <button
-                  className="wo-button wo-quiet"
-                  type="button"
-                  disabled={!visible.length}
-                  onClick={() => exportCsv(visible)}
+            <div className="wo-toolbar">
+              <label className="wo-search">
+                Rechercher un client
+                <input
+                  type="search"
+                  placeholder="Nom, email, téléphone, besoin…"
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                />
+              </label>
+              <label>
+                Afficher
+                <select
+                  value={filter}
+                  onChange={event => changeFilter(event.target.value)}
                 >
-                  Exporter CSV ↓
-                </button>
-              </div>
-            )}
+                  <option value="all">Clients actifs</option>
+                  <option value="overdue">Relances en retard</option>
+                  <option value="needs">Besoins à préciser</option>
+                  <option value="phone">Téléphone manquant</option>
+                  {admin && <option value="unassigned">Sans responsable</option>}
+                  <option value="archived">Fiches archivées</option>
+                </select>
+              </label>
+              <button
+                className="wo-button wo-quiet"
+                type="button"
+                disabled={!visible.length}
+                onClick={() => exportCsv(visible)}
+              >
+                Exporter CSV ↓
+              </button>
+            </div>
 
-            <div className={
-              editable ? 'wo-client-layout' : 'wo-client-layout wo-client-only'
-            }>
-              {editable && (
-                <section className="wo-client-list" aria-label="Liste des clients">
-                  <div className="wo-list-heading">
-                    <strong>{archivedView ? 'Fiches archivées' : 'Clients actifs'}</strong>
-                    <span aria-live="polite">
-                      {visible.length} résultat{visible.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
+            <div className="wo-client-layout">
+              <section className="wo-client-list" aria-label="Liste des clients">
+                <div className="wo-list-heading">
+                  <strong>{archivedView ? 'Fiches archivées' : 'Clients actifs'}</strong>
+                  <span aria-live="polite">
+                    {visible.length} résultat{visible.length > 1 ? 's' : ''}
+                  </span>
+                </div>
 
-                  {visible.length ? visible.map(client => (
-                    <button
-                      type="button"
-                      className={'wo-client-row' + (
-                        selected?.id === client.id ? ' selected' : ''
-                      )}
-                      aria-pressed={selected?.id === client.id}
-                      key={client.id}
-                      onClick={() => choose(client)}
-                      disabled={saving}
-                    >
-                      <span className="wo-avatar">{initials(client.full_name)}</span>
-                      <span>
-                        <strong>{client.full_name}</strong>
-                        <small>{client.email}</small>
-                        <span className="wo-row-note">
-                          {client.needs || 'Besoins à préciser'}
-                        </span>
-                        {client.archived_at ? (
-                          <span className="wo-followup">Archivée le {formatContactDate(client.archived_at)}</span>
-                        ) : (
-                          <span className="wo-followup" data-overdue={isOverdue(client, now)}>
-                            {client.next_followup_at
-                              ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
-                                formatContactDate(client.next_followup_at)
-                              : 'Relance à planifier'}
-                          </span>
-                        )}
+                {visible.length ? visible.map(client => (
+                  <button
+                    type="button"
+                    className={'wo-client-row' + (
+                      selected?.id === client.id ? ' selected' : ''
+                    )}
+                    aria-pressed={selected?.id === client.id}
+                    key={client.id}
+                    onClick={() => choose(client)}
+                    disabled={saving}
+                  >
+                    <span className="wo-avatar">{initials(client.full_name)}</span>
+                    <span>
+                      <strong>{client.full_name}</strong>
+                      <small>{client.email}</small>
+                      <span className="wo-row-note">
+                        {client.needs || 'Besoins à préciser'}
                       </span>
-                      <span aria-hidden="true">›</span>
-                    </button>
-                  )) : (
-                    <p className="wo-empty">
-                      {listedClients.length
-                        ? 'Aucun résultat pour cette recherche.'
-                        : archivedView
-                          ? 'Aucune fiche archivée.'
-                        : admin
-                          ? 'Aucun client actif dans votre portefeuille.'
-                          : 'Aucun client actif attribué.'}
-                    </p>
-                  )}
-                </section>
-              )}
+                      {client.archived_at ? (
+                        <span className="wo-followup">Archivée le {formatContactDate(client.archived_at)}</span>
+                      ) : (
+                        <span className="wo-followup" data-overdue={isOverdue(client, now)}>
+                          {client.next_followup_at
+                            ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
+                              formatContactDate(client.next_followup_at)
+                            : 'Relance à planifier'}
+                        </span>
+                      )}
+                    </span>
+                    <span aria-hidden="true">›</span>
+                  </button>
+                )) : (
+                  <p className="wo-empty">
+                    {listedClients.length
+                      ? 'Aucun résultat pour cette recherche.'
+                      : archivedView
+                        ? 'Aucune fiche archivée.'
+                      : admin
+                        ? 'Aucun client actif dans votre portefeuille.'
+                        : 'Aucun client actif attribué.'}
+                  </p>
+                )}
+              </section>
 
-              {selected && (!editable || Boolean(selected.archived_at) === archivedView) ? (
+              {selected && Boolean(selected.archived_at) === archivedView ? (
                 <section className="wo-detail" aria-labelledby="wo-client-title">
                   <div className="wo-detail-top">
                     <span className="wo-avatar wo-avatar-large">
@@ -872,7 +851,7 @@ export default function Dashboard({
                     </span>
                     <div>
                       <span className="wo-badge">
-                        {editable && selected.archived_at ? 'Fiche archivée' : 'Fiche client'}
+                        {selected.archived_at ? 'Fiche archivée' : 'Fiche client'}
                       </span>
                       <h2 id="wo-client-title">{selected.full_name}</h2>
                       <a href={'mailto:' + encodeURIComponent(selected.email)}>
@@ -895,7 +874,6 @@ export default function Dashboard({
                         <input
                           required
                           maxLength={160}
-                          readOnly={!editable}
                           disabled={saving}
                           value={selected.full_name}
                           onChange={event => change('full_name', event.target.value)}
@@ -908,7 +886,6 @@ export default function Dashboard({
                         <input
                           type="tel"
                           maxLength={60}
-                          readOnly={!editable}
                           disabled={saving}
                           value={selected.phone}
                           onChange={event => change('phone', event.target.value)}
@@ -924,7 +901,7 @@ export default function Dashboard({
                           Dernier contact
                           <input type="datetime-local"
                             value={toDateTimeInput(selected.last_contact_at)}
-                            readOnly={!editable} disabled={saving}
+                            disabled={saving}
                             onChange={event => change(
                               'last_contact_at', fromDateTimeInput(event.target.value)
                             )}
@@ -934,7 +911,7 @@ export default function Dashboard({
                           Prochaine relance
                           <input type="datetime-local"
                             value={toDateTimeInput(selected.next_followup_at)}
-                            readOnly={!editable} disabled={saving}
+                            disabled={saving}
                             onChange={event => change(
                               'next_followup_at', fromDateTimeInput(event.target.value)
                             )}
@@ -942,13 +919,11 @@ export default function Dashboard({
                         </label>
                       </div>
                       <small>Heure locale : {Intl.DateTimeFormat().resolvedOptions().timeZone}</small>
-                      {editable && (
-                        <button type="button" className="wo-button wo-quiet"
-                          disabled={saving}
-                          onClick={() => change('last_contact_at', new Date().toISOString())}>
-                          Contact effectué maintenant
-                        </button>
-                      )}
+                      <button type="button" className="wo-button wo-quiet"
+                        disabled={saving}
+                        onClick={() => change('last_contact_at', new Date().toISOString())}>
+                        Contact effectué maintenant
+                      </button>
                     </div>
 
                     <label>
@@ -956,7 +931,6 @@ export default function Dashboard({
                       <textarea
                         rows={6}
                         maxLength={6000}
-                        readOnly={!editable}
                         disabled={saving}
                         value={selected.needs}
                         onChange={event => change('needs', event.target.value)}
@@ -998,35 +972,27 @@ export default function Dashboard({
                     )}
 
                     <div className="wo-form-actions">
-                      {editable && (
-                        <button
-                          className="wo-button wo-primary"
-                          type="submit"
-                          disabled={saving || !dirty}
-                        >
-                          {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
-                        </button>
-                      )}
+                      <button
+                        className="wo-button wo-primary"
+                        type="submit"
+                        disabled={saving || !dirty}
+                      >
+                        {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
+                      </button>
 
                       <a
                         className="wo-button wo-quiet"
-                        href={'mailto:' + (
-                          editable
-                            ? encodeURIComponent(selected.email)
-                            : 'naomiebocobza@naobocolab.com'
-                        )}
+                        href={'mailto:' + encodeURIComponent(selected.email)}
                       >
-                        {editable ? 'Préparer un email ↗' : 'Contacter Olimline ↗'}
+                        Préparer un email ↗
                       </a>
 
-                      {editable && (
-                        <button type="button" className="wo-button wo-quiet" disabled={saving}
-                          onClick={() => void changeArchive()}>
-                          {selected.archived_at ? 'Restaurer la fiche' : 'Archiver la fiche'}
-                        </button>
-                      )}
+                      <button type="button" className="wo-button wo-quiet" disabled={saving}
+                        onClick={() => void changeArchive()}>
+                        {selected.archived_at ? 'Restaurer la fiche' : 'Archiver la fiche'}
+                      </button>
 
-                      {editable && !selected.archived_at && (
+                      {!selected.archived_at && (
                         <button type="button" className="wo-button wo-quiet" disabled={saving}
                           onClick={() => openSubscriptions(selected.id)}>Forfait et besoins</button>
                       )}
@@ -1034,22 +1000,16 @@ export default function Dashboard({
                       {dirty && <small>Modifications non enregistrées</small>}
                     </div>
                   </form>
-                  {editable && (
-                    <Suspense fallback={<p role="status">Ouverture du suivi produit…</p>}>
-                      <ClientJourneyManager key={selected.id + (selected.archived_at ?? '')}
-                        clientId={selected.id} archived={Boolean(selected.archived_at)} />
-                    </Suspense>
-                  )}
-                  {editable && (
-                    <EmailAnalysis key={selected.id} clientId={selected.id}
-                      clientEmail={selected.email} disabled={saving} />
-                  )}
+                  <Suspense fallback={<p role="status">Ouverture du suivi produit…</p>}>
+                    <ClientJourneyManager key={selected.id + (selected.archived_at ?? '')}
+                      clientId={selected.id} archived={Boolean(selected.archived_at)} />
+                  </Suspense>
+                  <EmailAnalysis key={selected.id} clientId={selected.id}
+                    clientEmail={selected.email} disabled={saving} />
                 </section>
               ) : (
                 <section className="wo-detail wo-empty">
-                  {editable
-                    ? 'Sélectionnez un client pour consulter sa fiche.'
-                    : 'Votre dossier n’est pas encore disponible. Contactez Olimline.'}
+                  Sélectionnez un client pour consulter sa fiche.
                 </section>
               )}
             </div>
