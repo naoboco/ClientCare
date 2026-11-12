@@ -1,7 +1,6 @@
 
 import './App.css'
 import laptopChameleon from './assets/watchover-laptop.png'
-import { watchoverSignupPath } from './lib/watchoverAccess'
 
 // ==========================================
 // WATCHOVER — DATA
@@ -106,8 +105,8 @@ function App() {
           <a href="#styles">Styles</a>
         </nav>
 
-        <a href={watchoverSignupPath} className="button button-primary">
-          Start my CRM project
+        <a href="#product" className="button button-primary">
+          Explore Watchover
         </a>
       </header>
 
@@ -139,10 +138,10 @@ function App() {
 
             <div className="hero-actions">
               <a
-                href={watchoverSignupPath}
+                href="#product"
                 className="button button-primary"
               >
-                Start my CRM project →
+                Discover Watchover →
               </a>
 
               <a 
@@ -465,10 +464,10 @@ function App() {
           </p>
 
           <a
-            href={watchoverSignupPath}
+            href="#top"
             className="button button-light"
           >
-            Start my CRM project →
+            Explore Watchover ↑
           </a>
         </section>
 

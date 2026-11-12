@@ -1,14 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react'
 import { db } from './lib/olimline'
-import type { StaffProfile } from './lib/auth'
+import type { Profile } from './lib/auth'
 import { toDateTimeInput, fromDateTimeInput, formatContactDate, isOverdue } from './lib/followups'
-import type { Plan } from './lib/subscriptions'
 import EmailAnalysis from './EmailAnalysis.tsx'
 import './Dashboard.css'
 
 const WorkspaceSettings = lazy(() => import('./WorkspaceSettings.tsx'))
-const ClientRequestsInbox = lazy(() => import('./ClientRequestsInbox.tsx'))
-const SubscriptionAnalytics = lazy(() => import('./SubscriptionAnalytics.tsx'))
 
 type Client = {
   id: string
@@ -24,6 +21,16 @@ type Client = {
   archived_at: string | null
 }
 
+type Plan = {
+  id: string
+  name: string
+  price: number | string
+  data_gb: number
+  national_minutes: number
+  international_minutes: number
+  active: boolean
+}
+
 type Staff = {
   id: string
   full_name: string
@@ -31,7 +38,7 @@ type Staff = {
 }
 
 type Props = {
-  profile: StaffProfile
+  profile: Profile
   roleLabel: string
   onLogout: () => Promise<void>
   logoutBusy: boolean
@@ -39,13 +46,7 @@ type Props = {
 }
 
 const fields = 'id, organization_id, full_name, email, phone, needs, coordinator_id, created_at, last_contact_at, next_followup_at, archived_at'
-const tabLabels = {
-  clients: 'Relation client',
-  requests: 'Demandes clients',
-  plans: 'Catalogue',
-  subscriptions: 'Analyse des forfaits',
-  settings: 'Configuration',
-}
+const tabLabels = { clients: 'Relation client', plans: 'Catalogue', settings: 'Configuration' }
 
 function messageOf(error: unknown) {
   return error && typeof error === 'object' && 'message' in error
@@ -180,13 +181,10 @@ export default function Dashboard({
   profile, roleLabel, onLogout, logoutBusy, logoutError,
 }: Props) {
   const admin = profile.role === 'admin'
+  const editable = profile.role !== 'client'
 
   const [tab, setTab] = useState<keyof typeof tabLabels>('clients')
   const configuring = tab === 'settings'
-  const viewingRequests = tab === 'requests'
-  const viewingSubscriptions = tab === 'subscriptions'
-  const showPortfolio = !configuring && !viewingRequests && !viewingSubscriptions
-  const [subscriptionClientId, setSubscriptionClientId] = useState<string>()
   const [clients, setClients] = useState<Client[]>([])
   const [plans, setPlans] = useState<Plan[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
@@ -230,6 +228,10 @@ export default function Dashboard({
           query = query.eq('coordinator_id', profile.id)
         }
 
+        if (profile.role === 'client') {
+          query = query.eq('user_id', profile.id)
+        }
+
         const [clientResult, planResult, staffResult] = await Promise.all([
           query.order('full_name').abortSignal(controller.signal),
 
@@ -258,7 +260,7 @@ export default function Dashboard({
         setClients(rows)
         setPlans((planResult.data ?? []) as Plan[])
         setStaff((staffResult.data ?? []) as Staff[])
-        const first = rows.find(row => !row.archived_at)
+        const first = profile.role === 'client' ? rows[0] : rows.find(row => !row.archived_at)
         setSelected(first ? { ...first } : null)
         setSaved(false)
         setSaveError('')
@@ -312,13 +314,6 @@ export default function Dashboard({
     setSaveError('')
   }
 
-  function openSubscriptions(clientId?: string) {
-    if (!mayLeave()) return
-    if (dirty && original) setSelected({ ...original })
-    setSubscriptionClientId(clientId)
-    setTab('subscriptions')
-  }
-
   function openCreation() {
     if (!mayLeave()) return
     if (dirty && original) setSelected({ ...original })
@@ -329,23 +324,6 @@ export default function Dashboard({
   function storeClient(row: Client) {
     setClients(current => [...current.filter(client => client.id !== row.id), row]
       .sort((a, b) => a.full_name.localeCompare(b.full_name, 'fr')))
-  }
-
-  async function openRequestClient(clientId: string) {
-    if (!mayLeave()) return
-    const { data, error } = await db().from('wo_clients').select(fields)
-      .eq('id', clientId).eq('organization_id', profile.organization_id).maybeSingle()
-    if (error || !data) throw new Error('Ce dossier n’est plus accessible.')
-
-    const client = data as Client
-    storeClient(client)
-    setSelected(client)
-    setSearch('')
-    setFilter(client.archived_at ? 'archived' : 'all')
-    setSaved(false)
-    setSaveError('')
-    setNotice('')
-    setTab('clients')
   }
 
   function onCreated(client: Client) {
@@ -371,7 +349,7 @@ export default function Dashboard({
   }
 
   async function changeArchive() {
-    if (!selected || !mayLeave()) return
+    if (!editable || !selected || !mayLeave()) return
     const archived = !selected.archived_at
     setSaving(true)
     setSaved(false)
@@ -419,7 +397,7 @@ export default function Dashboard({
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!selected || !original || saving || !dirty) return
+    if (!selected || !editable || saving || !dirty) return
 
     const row = {
       ...selected,
@@ -438,14 +416,14 @@ export default function Dashboard({
     setSaveError('')
 
     try {
-      // Les coordonnées peuvent aussi être mises à jour dans l’espace client.
-      const patch: Partial<Client> = {}
-      if (selected.full_name !== original.full_name) patch.full_name = row.full_name
-      if (selected.phone !== original.phone) patch.phone = row.phone
-      if (selected.needs !== original.needs) patch.needs = row.needs
-      if (row.last_contact_at !== original.last_contact_at) patch.last_contact_at = row.last_contact_at
-      if (row.next_followup_at !== original.next_followup_at) patch.next_followup_at = row.next_followup_at
-      if (admin && row.coordinator_id !== original.coordinator_id) patch.coordinator_id = row.coordinator_id
+      const patch = {
+        full_name: row.full_name,
+        phone: row.phone,
+        needs: row.needs,
+        last_contact_at: row.last_contact_at,
+        next_followup_at: row.next_followup_at,
+        ...(admin ? { coordinator_id: row.coordinator_id } : {}),
+      }
 
       const { data, error } = await db().from('wo_clients')
         .update(patch)
@@ -488,7 +466,7 @@ export default function Dashboard({
   const overdueCount = activeClients.filter(client => isOverdue(client, now)).length
   const ready = !loading && !loadError
   const metrics = [
-    ['Clients actifs', activeClients.length],
+    editable ? ['Clients actifs', activeClients.length] : ['Mon dossier', clients.length],
     ['Relances en retard', overdueCount],
     [
       admin ? 'Clients à attribuer' : 'Téléphones renseignés',
@@ -540,13 +518,7 @@ export default function Dashboard({
             onClick={() => setTab('clients')}
           >
             <span aria-hidden="true">◈</span>
-            Portefeuille clients
-          </button>
-
-          <button type="button" className={viewingRequests ? 'active' : ''}
-            aria-current={viewingRequests ? 'page' : undefined} onClick={() => setTab('requests')}>
-            <span aria-hidden="true">▣</span>
-            Demandes clients
+            {editable ? 'Portefeuille clients' : 'Mon dossier'}
           </button>
 
           <button
@@ -557,12 +529,6 @@ export default function Dashboard({
           >
             <span aria-hidden="true">▤</span>
             Catalogue des forfaits
-          </button>
-
-          <button type="button" className={viewingSubscriptions ? 'active' : ''}
-            aria-current={viewingSubscriptions ? 'page' : undefined} onClick={() => openSubscriptions()}>
-            <span aria-hidden="true">▥</span>
-            Analyse des forfaits
           </button>
 
           {admin && (
@@ -624,41 +590,26 @@ export default function Dashboard({
             </Suspense>
           )}
 
-          {viewingRequests && (
-            <Suspense fallback={<p role="status">Ouverture des demandes…</p>}>
-              <ClientRequestsInbox onOpenClient={openRequestClient} />
-            </Suspense>
-          )}
-
-          {viewingSubscriptions && ready && (
-            <Suspense fallback={<p role="status">Ouverture de l’analyse des forfaits…</p>}>
-              <SubscriptionAnalytics clients={activeClients} plans={plans}
-                organizationId={profile.organization_id} initialClientId={subscriptionClientId} />
-            </Suspense>
-          )}
-          {viewingSubscriptions && loading && <p role="status">Chargement du portefeuille…</p>}
-          {viewingSubscriptions && loadError && (
-            <div className="wo-alert" role="alert">
-              Impossible de charger le portefeuille.
-              <button className="wo-button wo-quiet" type="button"
-                onClick={() => setRevision(value => value + 1)}>Actualiser</button>
-            </div>
-          )}
-
-          <section className="wo-welcome" hidden={!showPortfolio}>
+          <section className="wo-welcome" hidden={configuring}>
             <div>
               <p className="wo-eyebrow">VOTRE ENTREPRISE. VOTRE MANIÈRE.</p>
               <h1>
                 {tab === 'plans'
                   ? 'Le bon forfait commence ici.'
-                  : 'Chaque client compte.'}
+                  : editable
+                    ? 'Chaque client compte.'
+                    : 'Bienvenue dans votre espace.'}
               </h1>
-              <p>Retrouvez les informations utiles et préparez votre prochain échange.</p>
+              <p>
+                {editable
+                  ? 'Retrouvez les informations utiles et préparez votre prochain échange.'
+                  : 'Retrouvez les informations de votre dossier et les offres Olimline.'}
+              </p>
             </div>
             <span className="wo-welcome-mark" aria-hidden="true">O.</span>
           </section>
 
-          <div className="wo-metrics" hidden={!showPortfolio}>
+          <div className="wo-metrics" hidden={configuring}>
             {metrics.map(([label, value]) => (
               <article key={String(label)}>
                 <span>{label}</span>
@@ -667,7 +618,7 @@ export default function Dashboard({
             ))}
           </div>
 
-          <div className="wo-section-heading" hidden={!showPortfolio}>
+          <div className="wo-section-heading" hidden={configuring}>
             <div>
               <p className="wo-eyebrow">
                 {tab === 'clients' ? 'RELATION CLIENT' : 'OFFRES OLIMLINE'}
@@ -675,11 +626,11 @@ export default function Dashboard({
               <h2>
                 {tab === 'plans'
                   ? 'Catalogue des forfaits'
-                  : 'Votre portefeuille'}
+                  : editable ? 'Votre portefeuille' : 'Mon dossier'}
               </h2>
             </div>
             <div className="wo-form-actions">
-              {ready && tab === 'clients' && (
+              {editable && ready && tab === 'clients' && (
                 <button className="wo-button wo-primary" type="button"
                   disabled={saving} onClick={openCreation}>
                   Nouvelle fiche
@@ -702,13 +653,13 @@ export default function Dashboard({
             </div>
           </div>
 
-          {showPortfolio && loading && (
+          {!configuring && loading && (
             <div className="wo-empty" role="status">
               Chargement de votre espace…
             </div>
           )}
 
-          {showPortfolio && loadError && (
+          {!configuring && loadError && (
             <p className="wo-alert" role="alert">
               Impossible de charger les données : {loadError}.
               Utilisez « Actualiser » pour réessayer.
@@ -746,7 +697,7 @@ export default function Dashboard({
           {ready && tab === 'clients' && <>
             {creating && <CreateClientDialog onCreated={onCreated} onClose={() => setCreating(false)} />}
             {notice && <p ref={noticeRef} className="wo-success" role="status" tabIndex={-1}>{notice}</p>}
-            {!archivedView && overdueCount > 0 && (
+            {editable && !archivedView && overdueCount > 0 && (
               <div className="wo-alert wo-followup-alert" role="status">
                 <strong>{overdueCount} relance{overdueCount > 1 ? 's' : ''} en retard.</strong>
                 <button type="button" className="wo-button wo-quiet"
@@ -755,94 +706,100 @@ export default function Dashboard({
                 </button>
               </div>
             )}
-            <div className="wo-toolbar">
-              <label className="wo-search">
-                Rechercher un client
-                <input
-                  type="search"
-                  placeholder="Nom, email, téléphone, besoin…"
-                  value={search}
-                  onChange={event => setSearch(event.target.value)}
-                />
-              </label>
-              <label>
-                Afficher
-                <select
-                  value={filter}
-                  onChange={event => changeFilter(event.target.value)}
-                >
-                  <option value="all">Clients actifs</option>
-                  <option value="overdue">Relances en retard</option>
-                  <option value="needs">Besoins à préciser</option>
-                  <option value="phone">Téléphone manquant</option>
-                  {admin && <option value="unassigned">Sans responsable</option>}
-                  <option value="archived">Fiches archivées</option>
-                </select>
-              </label>
-              <button
-                className="wo-button wo-quiet"
-                type="button"
-                disabled={!visible.length}
-                onClick={() => exportCsv(visible)}
-              >
-                Exporter CSV ↓
-              </button>
-            </div>
-
-            <div className="wo-client-layout">
-              <section className="wo-client-list" aria-label="Liste des clients">
-                <div className="wo-list-heading">
-                  <strong>{archivedView ? 'Fiches archivées' : 'Clients actifs'}</strong>
-                  <span aria-live="polite">
-                    {visible.length} résultat{visible.length > 1 ? 's' : ''}
-                  </span>
-                </div>
-
-                {visible.length ? visible.map(client => (
-                  <button
-                    type="button"
-                    className={'wo-client-row' + (
-                      selected?.id === client.id ? ' selected' : ''
-                    )}
-                    aria-pressed={selected?.id === client.id}
-                    key={client.id}
-                    onClick={() => choose(client)}
-                    disabled={saving}
+            {editable && (
+              <div className="wo-toolbar">
+                <label className="wo-search">
+                  Rechercher un client
+                  <input
+                    type="search"
+                    placeholder="Nom, email, téléphone, besoin…"
+                    value={search}
+                    onChange={event => setSearch(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Afficher
+                  <select
+                    value={filter}
+                    onChange={event => changeFilter(event.target.value)}
                   >
-                    <span className="wo-avatar">{initials(client.full_name)}</span>
-                    <span>
-                      <strong>{client.full_name}</strong>
-                      <small>{client.email}</small>
-                      <span className="wo-row-note">
-                        {client.needs || 'Besoins à préciser'}
-                      </span>
-                      {client.archived_at ? (
-                        <span className="wo-followup">Archivée le {formatContactDate(client.archived_at)}</span>
-                      ) : (
-                        <span className="wo-followup" data-overdue={isOverdue(client, now)}>
-                          {client.next_followup_at
-                            ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
-                              formatContactDate(client.next_followup_at)
-                            : 'Relance à planifier'}
-                        </span>
-                      )}
-                    </span>
-                    <span aria-hidden="true">›</span>
-                  </button>
-                )) : (
-                  <p className="wo-empty">
-                    {listedClients.length
-                      ? 'Aucun résultat pour cette recherche.'
-                      : archivedView
-                        ? 'Aucune fiche archivée.'
-                      : admin
-                        ? 'Aucun client actif dans votre portefeuille.'
-                        : 'Aucun client actif attribué.'}
-                  </p>
-                )}
-              </section>
+                    <option value="all">Clients actifs</option>
+                    <option value="overdue">Relances en retard</option>
+                    <option value="needs">Besoins à préciser</option>
+                    <option value="phone">Téléphone manquant</option>
+                    {admin && <option value="unassigned">Sans responsable</option>}
+                    <option value="archived">Fiches archivées</option>
+                  </select>
+                </label>
+                <button
+                  className="wo-button wo-quiet"
+                  type="button"
+                  disabled={!visible.length}
+                  onClick={() => exportCsv(visible)}
+                >
+                  Exporter CSV ↓
+                </button>
+              </div>
+            )}
 
-              {selected && Boolean(selected.archived_at) === archivedView ? (
+            <div className={
+              editable ? 'wo-client-layout' : 'wo-client-layout wo-client-only'
+            }>
+              {editable && (
+                <section className="wo-client-list" aria-label="Liste des clients">
+                  <div className="wo-list-heading">
+                    <strong>{archivedView ? 'Fiches archivées' : 'Clients actifs'}</strong>
+                    <span aria-live="polite">
+                      {visible.length} résultat{visible.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {visible.length ? visible.map(client => (
+                    <button
+                      type="button"
+                      className={'wo-client-row' + (
+                        selected?.id === client.id ? ' selected' : ''
+                      )}
+                      aria-pressed={selected?.id === client.id}
+                      key={client.id}
+                      onClick={() => choose(client)}
+                      disabled={saving}
+                    >
+                      <span className="wo-avatar">{initials(client.full_name)}</span>
+                      <span>
+                        <strong>{client.full_name}</strong>
+                        <small>{client.email}</small>
+                        <span className="wo-row-note">
+                          {client.needs || 'Besoins à préciser'}
+                        </span>
+                        {client.archived_at ? (
+                          <span className="wo-followup">Archivée le {formatContactDate(client.archived_at)}</span>
+                        ) : (
+                          <span className="wo-followup" data-overdue={isOverdue(client, now)}>
+                            {client.next_followup_at
+                              ? (isOverdue(client, now) ? 'En retard · ' : 'Relance · ') +
+                                formatContactDate(client.next_followup_at)
+                              : 'Relance à planifier'}
+                          </span>
+                        )}
+                      </span>
+                      <span aria-hidden="true">›</span>
+                    </button>
+                  )) : (
+                    <p className="wo-empty">
+                      {listedClients.length
+                        ? 'Aucun résultat pour cette recherche.'
+                        : archivedView
+                          ? 'Aucune fiche archivée.'
+                        : admin
+                          ? 'Aucun client actif dans votre portefeuille.'
+                          : 'Aucun client actif attribué.'}
+                    </p>
+                  )}
+                </section>
+              )}
+
+              {selected && (!editable || Boolean(selected.archived_at) === archivedView) ? (
                 <section className="wo-detail" aria-labelledby="wo-client-title">
                   <div className="wo-detail-top">
                     <span className="wo-avatar wo-avatar-large">
@@ -850,7 +807,7 @@ export default function Dashboard({
                     </span>
                     <div>
                       <span className="wo-badge">
-                        {selected.archived_at ? 'Fiche archivée' : 'Fiche client'}
+                        {editable && selected.archived_at ? 'Fiche archivée' : 'Fiche client'}
                       </span>
                       <h2 id="wo-client-title">{selected.full_name}</h2>
                       <a href={'mailto:' + encodeURIComponent(selected.email)}>
@@ -873,6 +830,7 @@ export default function Dashboard({
                         <input
                           required
                           maxLength={160}
+                          readOnly={!editable}
                           disabled={saving}
                           value={selected.full_name}
                           onChange={event => change('full_name', event.target.value)}
@@ -885,6 +843,7 @@ export default function Dashboard({
                         <input
                           type="tel"
                           maxLength={60}
+                          readOnly={!editable}
                           disabled={saving}
                           value={selected.phone}
                           onChange={event => change('phone', event.target.value)}
@@ -900,7 +859,7 @@ export default function Dashboard({
                           Dernier contact
                           <input type="datetime-local"
                             value={toDateTimeInput(selected.last_contact_at)}
-                            disabled={saving}
+                            readOnly={!editable} disabled={saving}
                             onChange={event => change(
                               'last_contact_at', fromDateTimeInput(event.target.value)
                             )}
@@ -910,7 +869,7 @@ export default function Dashboard({
                           Prochaine relance
                           <input type="datetime-local"
                             value={toDateTimeInput(selected.next_followup_at)}
-                            disabled={saving}
+                            readOnly={!editable} disabled={saving}
                             onChange={event => change(
                               'next_followup_at', fromDateTimeInput(event.target.value)
                             )}
@@ -918,11 +877,13 @@ export default function Dashboard({
                         </label>
                       </div>
                       <small>Heure locale : {Intl.DateTimeFormat().resolvedOptions().timeZone}</small>
-                      <button type="button" className="wo-button wo-quiet"
-                        disabled={saving}
-                        onClick={() => change('last_contact_at', new Date().toISOString())}>
-                        Contact effectué maintenant
-                      </button>
+                      {editable && (
+                        <button type="button" className="wo-button wo-quiet"
+                          disabled={saving}
+                          onClick={() => change('last_contact_at', new Date().toISOString())}>
+                          Contact effectué maintenant
+                        </button>
+                      )}
                     </div>
 
                     <label>
@@ -930,6 +891,7 @@ export default function Dashboard({
                       <textarea
                         rows={6}
                         maxLength={6000}
+                        readOnly={!editable}
                         disabled={saving}
                         value={selected.needs}
                         onChange={event => change('needs', event.target.value)}
@@ -971,40 +933,47 @@ export default function Dashboard({
                     )}
 
                     <div className="wo-form-actions">
-                      <button
-                        className="wo-button wo-primary"
-                        type="submit"
-                        disabled={saving || !dirty}
-                      >
-                        {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
-                      </button>
+                      {editable && (
+                        <button
+                          className="wo-button wo-primary"
+                          type="submit"
+                          disabled={saving || !dirty}
+                        >
+                          {saving ? 'Enregistrement…' : 'Enregistrer les modifications'}
+                        </button>
+                      )}
 
                       <a
                         className="wo-button wo-quiet"
-                        href={'mailto:' + encodeURIComponent(selected.email)}
+                        href={'mailto:' + (
+                          editable
+                            ? encodeURIComponent(selected.email)
+                            : 'naomiebocobza@naobocolab.com'
+                        )}
                       >
-                        Préparer un email ↗
+                        {editable ? 'Préparer un email ↗' : 'Contacter Olimline ↗'}
                       </a>
 
-                      <button type="button" className="wo-button wo-quiet" disabled={saving}
-                        onClick={() => void changeArchive()}>
-                        {selected.archived_at ? 'Restaurer la fiche' : 'Archiver la fiche'}
-                      </button>
-
-                      {!selected.archived_at && (
+                      {editable && (
                         <button type="button" className="wo-button wo-quiet" disabled={saving}
-                          onClick={() => openSubscriptions(selected.id)}>Forfait et besoins</button>
+                          onClick={() => void changeArchive()}>
+                          {selected.archived_at ? 'Restaurer la fiche' : 'Archiver la fiche'}
+                        </button>
                       )}
 
                       {dirty && <small>Modifications non enregistrées</small>}
                     </div>
                   </form>
-                  <EmailAnalysis key={selected.id} clientId={selected.id}
-                    clientEmail={selected.email} disabled={saving} />
+                  {editable && (
+                    <EmailAnalysis key={selected.id} clientId={selected.id}
+                      clientEmail={selected.email} disabled={saving} />
+                  )}
                 </section>
               ) : (
                 <section className="wo-detail wo-empty">
-                  Sélectionnez un client pour consulter sa fiche.
+                  {editable
+                    ? 'Sélectionnez un client pour consulter sa fiche.'
+                    : 'Votre dossier n’est pas encore disponible. Contactez Olimline.'}
                 </section>
               )}
             </div>
