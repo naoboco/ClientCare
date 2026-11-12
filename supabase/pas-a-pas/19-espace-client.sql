@@ -2,14 +2,6 @@ begin;
 
 alter table public.wo_clients add column portal_contact_confirmed_at timestamptz;
 
--- Les notes de la fiche CRM restent accessibles à l’équipe. Le portail lit
--- uniquement les coordonnées et le nom du responsable via wo_portal_contact.
-alter policy clients_read on public.wo_clients
-using (
-  wo_private.can_access_client(id)
-  and (select wo_private.actor_role()) in ('admin', 'coordinator')
-);
-
 create table public.wo_client_journeys (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.wo_clients(id) on delete cascade,

@@ -32,7 +32,7 @@ Ouvrir l’adresse indiquée par Vite. Le serveur Vite lance l’interface. Pour
 
 ### Préparer une base Supabase de test
 
-1. Dans le SQL Editor d’un projet Supabase de test vide, exécuter les scripts `01` à `06`, puis `08`, `12` à `16`, `18` et `19`, dans cet ordre. [Scripts SQL](supabase/pas-a-pas)
+1. Dans le SQL Editor d’un projet Supabase de test vide, exécuter les scripts `01` à `06`, puis `08`, `12` à `16` et `18` à `20`, dans cet ordre. [Scripts SQL](supabase/pas-a-pas)
 2. Créer et confirmer le compte de test dans Supabase Auth. Renseigner son nom et son adresse dans une copie de `09-administratrice.sql` et exécuter cette copie pour attribuer le rôle administrateur. [Script d’attribution du rôle](supabase/pas-a-pas/09-administratrice.sql)
 3. Depuis **Accès de l’équipe**, créer une invitation pour un second compte de test avec le rôle **Coordinateur**. Ouvrir le lien avec ce compte et accepter l’invitation.
 4. Créer une fiche avec **Nouvelle fiche**. Pour la séquence Gmail, préparer une adresse de test dont les échanges sont déjà présents dans la boîte Gmail autorisée.
@@ -47,6 +47,8 @@ Pour ouvrir l’inscription client, activer la confirmation e-mail dans Supabase
 4. Depuis le compte client, créer une demande de produit ou un signalement technique. L’onglet **Demandes clients** du coordinateur attitré affiche le ticket. Une demande sans coordinateur reste visible par l’administration, qui peut ouvrir la fiche et l’attribuer.
 
 Le script `19` configure le bucket privé `wo-client-documents` avec un maximum de 10 Mo par fichier PDF, JPG ou PNG. Un refus réserve une nouvelle version de dépôt. Les anciens fichiers restent dans le bucket privé et peuvent être supprimés via Supabase Storage selon la politique de conservation de l’entreprise. [Migration de l’espace client](supabase/pas-a-pas/19-espace-client.sql)
+
+Sur une base utilisée par le site en ligne, appliquer le script `19` pour préparer les tables, les fonctions et le stockage. Tester le parcours sur le déploiement de prévisualisation. Appliquer le script `20` au moment de la bascule vers le nouveau portail, qui lit les données client via ses propres fonctions. Ce script réserve la lecture directe de la fiche CRM à l’équipe. [Bascule des droits d’accès](supabase/pas-a-pas/20-espace-client-droits.sql)
 
 ## Architecture
 
