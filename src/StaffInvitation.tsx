@@ -48,7 +48,7 @@ export default function StaffInvitation({ token, email, onLogout, logoutBusy, lo
   }
 
   if (email === null) {
-    return <Login title="Invitation Watchover" allowRegistration
+    return <Login title="Invitation Watchover" registration="staff"
       description="Utilisez l’adresse e-mail à laquelle l’invitation est destinée." />
   }
 
