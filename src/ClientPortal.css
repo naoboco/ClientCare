@@ -314,6 +314,15 @@
 .cp-staff .cp-inline-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; }
 .cp-inline-form label { flex: 1 1 175px; }
 
+.cp-staff .cp-household { border-top: 1px solid var(--cp-line); margin-top: 18px; padding-top: 16px; }
+.cp-household h4 { margin: 0; }
+.cp-household-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+.cp-household-actions label { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.cp-household-actions input { accent-color: var(--cp-accent); }
+.cp-household-add { display: flex; flex-wrap: wrap; align-items: flex-end; }
+.cp-household-add label { flex: 1 1 170px; }
+.cp-household-plan { margin-top: 14px; }
+
 .cp-inbox {
   display: grid;
   gap: 14px;

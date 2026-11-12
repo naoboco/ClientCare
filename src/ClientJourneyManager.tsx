@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import ClientHousehold from './ClientHousehold'
 import { db } from './lib/olimline'
 import {
   clientPortalPath, documentStatuses, downloadPortalDocument, journeyStages, loadClientJourneys,
@@ -10,12 +11,18 @@ type JourneyData = {
   journey: ClientJourney | undefined
   documents: PortalDocument[]
   contactConfirmed: boolean
+  holderName: string
 }
+
+const portabilityDocumentExamples = [
+  'Justificatif d’identité du titulaire',
+  'Demande de portabilité signée',
+]
 
 async function loadJourney(clientId: string, signal: AbortSignal): Promise<JourneyData> {
   const [journeys, contact] = await Promise.all([
     loadClientJourneys(clientId, signal),
-    db().from('wo_clients').select('portal_contact_confirmed_at, phone')
+    db().from('wo_clients').select('full_name, portal_contact_confirmed_at, phone')
       .eq('id', clientId).abortSignal(signal).single(),
   ])
   if (contact.error) throw contact.error
@@ -25,6 +32,7 @@ async function loadJourney(clientId: string, signal: AbortSignal): Promise<Journ
     journey,
     documents,
     contactConfirmed: Boolean(contact.data.portal_contact_confirmed_at && contact.data.phone.trim()),
+    holderName: contact.data.full_name,
   }
 }
 
@@ -144,13 +152,17 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
     if (saved) form.reset()
   }
 
+  function addDocument(journeyId: string, label: string) {
+    return change('wo_portal_add_document', {
+      p_journey_id: journeyId, p_label: label,
+    }, 'La liste des pièces est à jour dans l’espace client.')
+  }
+
   async function requireDocument(event: FormEvent<HTMLFormElement>, journeyId: string) {
     event.preventDefault()
     const form = event.currentTarget
     const label = String(new FormData(form).get('label') ?? '').trim()
-    const saved = await change('wo_portal_add_document', {
-      p_journey_id: journeyId, p_label: label,
-    }, 'La liste des pièces est à jour dans l’espace client.')
+    const saved = await addDocument(journeyId, label)
     if (saved) form.reset()
   }
 
@@ -226,12 +238,22 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
             </ul>
           )}
           {journey && collecting && !archived && (
-            <form className="cp-form cp-inline-form" onSubmit={event => void requireDocument(event, journey.id)}>
-              <label>Pièce à demander
-                <input required maxLength={120} name="label" disabled={disabled} />
-              </label>
-              <button className="cp-button cp-button-secondary" type="submit" disabled={disabled}>Demander la pièce</button>
-            </form>
+            <>
+              <form className="cp-form cp-inline-form" onSubmit={event => void requireDocument(event, journey.id)}>
+                <label>Pièce à demander
+                  <input required maxLength={120} name="label" disabled={disabled} />
+                </label>
+                <button className="cp-button cp-button-secondary" type="submit" disabled={disabled}>Demander la pièce</button>
+              </form>
+              <p className="cp-hint">Exemples de pièces si le client conserve son numéro. Ajoutez celles demandées par l’opérateur.</p>
+              <div className="cp-actions">
+                {portabilityDocumentExamples.map(label => (
+                  <button key={label} type="button" className="cp-button cp-button-secondary"
+                    disabled={disabled || data.documents.some(document => document.label.toLowerCase() === label.toLowerCase())}
+                    onClick={() => void addDocument(journey.id, label)}>{label}</button>
+                ))}
+              </div>
+            </>
           )}
           {journey && journey.stage !== 'delivered' && !archived && (
             <>
@@ -252,6 +274,7 @@ export default function ClientJourneyManager({ clientId, archived }: { clientId:
               </div>
             </>
           )}
+          <ClientHousehold clientId={clientId} holderName={data.holderName} journey={journey} revision={revision} />
         </>
       )}
     </section>

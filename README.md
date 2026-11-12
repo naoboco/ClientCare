@@ -32,7 +32,7 @@ Ouvrir l’adresse indiquée par Vite. Le serveur Vite lance l’interface. Pour
 
 ### Préparer une base Supabase de test
 
-1. Dans le SQL Editor d’un projet Supabase de test vide, exécuter les scripts `01` à `06`, puis `08`, `12` à `16` et `18` à `20`, dans cet ordre. [Scripts SQL](supabase/pas-a-pas)
+1. Dans le SQL Editor d’un projet Supabase de test vide, exécuter les scripts `01` à `06`, puis `08`, `12` à `16` et `18` à `21`, dans cet ordre. [Scripts SQL](supabase/pas-a-pas)
 2. Créer et confirmer le compte de test dans Supabase Auth. Renseigner son nom et son adresse dans une copie de `09-administratrice.sql` et exécuter cette copie pour attribuer le rôle administrateur. [Script d’attribution du rôle](supabase/pas-a-pas/09-administratrice.sql)
 3. Depuis **Accès de l’équipe**, créer une invitation pour un second compte de test avec le rôle **Coordinateur**. Ouvrir le lien avec ce compte et accepter l’invitation.
 4. Créer une fiche avec **Nouvelle fiche**. Pour la séquence Gmail, préparer une adresse de test dont les échanges sont déjà présents dans la boîte Gmail autorisée.
@@ -45,6 +45,10 @@ Pour ouvrir l’inscription client, activer la confirmation e-mail dans Supabase
 2. Depuis **Espace client** sur Olimline, se connecter avec le compte client, confirmer ses coordonnées et déposer les pièces. Le client voit les documents à fournir, en vérification, validés ou à remplacer.
 3. Avec le compte de l’équipe, télécharger et valider les pièces. Passer en traitement, puis confirmer la livraison. Le client retrouve l’étape actuelle en actualisant son espace.
 4. Depuis le compte client, créer une demande de produit ou un signalement technique. L’onglet **Demandes clients** du coordinateur attitré affiche le ticket. Une demande sans coordinateur reste visible par l’administration, qui peut ouvrir la fiche et l’attribuer.
+
+Pour une démonstration de portabilité, ouvrir le suivi d’un forfait et sélectionner **Justificatif d’identité du titulaire** et **Demande de portabilité signée** parmi les exemples de pièces. Le client voit la liste et le nombre de pièces validées. Pour un dossier réel, demander les pièces utiles selon les exigences de l’opérateur.
+
+Le script `21` s’applique après la `19`. Il ouvre **Mon foyer** au titulaire, qui peut ajouter des proches et choisir les lignes à inclure. Le coordinateur attitré voit ces choix dans la fiche. Le passage en traitement enregistre les lignes prévues pour ce forfait. [Migration des foyers](supabase/pas-a-pas/21-foyers-clients.sql)
 
 Le script `19` configure le bucket privé `wo-client-documents` avec un maximum de 10 Mo par fichier PDF, JPG ou PNG. Un refus réserve une nouvelle version de dépôt. Les anciens fichiers restent dans le bucket privé et peuvent être supprimés via Supabase Storage selon la politique de conservation de l’entreprise. [Migration de l’espace client](supabase/pas-a-pas/19-espace-client.sql)
 

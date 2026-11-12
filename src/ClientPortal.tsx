@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import ClientHousehold from './ClientHousehold'
 import { db } from './lib/olimline'
 import {
   documentFileTypes, documentStatuses, downloadPortalDocument, journeyStages, loadClientJourneys,
@@ -322,6 +323,8 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
     setRevision(value => value + 1)
   }
 
+  const approvedDocuments = data?.documents.filter(document => document.status === 'approved').length ?? 0
+
   return (
     <div className="cp-portal">
       <header className="cp-topbar">
@@ -367,7 +370,14 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
             <div className="cp-columns">
               <ContactForm key={data.contact.id} contact={data.contact} disabled={loading} onChanged={refresh} />
               <section className="cp-panel" aria-labelledby="cp-documents-heading">
-                <h2 id="cp-documents-heading">Mes documents</h2>
+                <div className="cp-panel-heading">
+                  <h2 id="cp-documents-heading">Mes documents</h2>
+                  {data.documents.length > 0 && (
+                    <span className="cp-pill" aria-live="polite">
+                      {approvedDocuments} sur {data.documents.length} pièces validées
+                    </span>
+                  )}
+                </div>
                 {data.documents.length > 0 ? (
                   <>
                     {data.journey?.stage === 'collecting' && <p className="cp-hint">PDF, JPG ou PNG, jusqu’à 10 Mo par fichier.</p>}
@@ -381,6 +391,9 @@ export default function ClientPortal({ onLogout, logoutBusy, logoutError }: Port
                 ) : <p className="cp-hint">Aucun document demandé pour le moment.</p>}
               </section>
             </div>
+
+            <ClientHousehold key={data.contact.id} clientId={data.contact.id} holderName={data.contact.full_name}
+              journey={data.journey} revision={revision} editable disabled={loading} />
 
             <div className="cp-columns">
               <section className="cp-panel" aria-labelledby="cp-new-request-heading">
